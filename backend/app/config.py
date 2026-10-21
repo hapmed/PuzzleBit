@@ -14,11 +14,12 @@ class Settings(BaseSettings):
     app_name: str = "PuzzleBit API"
     database_url: str = "sqlite:///./puzzlebit-dev.db"
     levels_file: Path = _BACKEND_DIR.parent / "data" / "levels.json"
-    cors_origins: list[str] = [
-        "https://puzzlebit.hapmed.qzz.io",
-        "http://localhost:8086",
-        "http://127.0.0.1:8086",
-    ]
+    # Orígenes CORS separados por comas (evita el lío JSON de pydantic-settings).
+    cors_origins: str = "https://puzzlebit.hapmed.qzz.io,http://localhost:8086,http://127.0.0.1:8086"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [s.strip() for s in self.cors_origins.split(",") if s.strip()]
 
     model_config = {"env_file": str(_BACKEND_DIR / ".env"), "extra": "ignore"}
 
