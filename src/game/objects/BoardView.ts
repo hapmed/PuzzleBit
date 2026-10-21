@@ -25,6 +25,7 @@ export class BoardView extends Phaser.GameObjects.Container {
   private onTurnEnd: (result: TurnResult) => void;
   private cascadeCount = 0;
   private lastRemoval?: { x: number; y: number; cells: number };
+  private shadows = new Map<number, Phaser.GameObjects.Image>();
 
   constructor(scene: Phaser.Scene, engine: Engine, originX: number, originY: number, cellSize: number, onTurnEnd: (r: TurnResult) => void) {
     super(scene, 0, 0);
@@ -74,6 +75,23 @@ export class BoardView extends Phaser.GameObjects.Container {
     return { x: this.boardX + c * this.cellSize, y: this.boardY + r * this.cellSize };
   }
 
+  /** Escala base de una pieza (texturas de 48 px). */
+  private baseScale(): number {
+    return (this.cellSize * 0.98) / 48;
+  }
+
+  /** Crea o recoloca la sombra que le da cuerpo a una pieza. */
+  private ensureShadow(id: number, cx: number, groundY: number): Phaser.GameObjects.Image {
+    let img = this.shadows.get(id);
+    if (!img) {
+      img = this.scene.add.image(cx, groundY, "shadow").setDepth(4);
+      img.setDisplaySize(this.cellSize * 0.9, this.cellSize * 0.44);
+      this.add(img);
+      this.shadows.set(id, img);
+    }
+    return img;
+  }
+
   private pieceTexture(r: number, c: number): string {
     const cell = this.engine.board.get(r, c);
     if (!cell) return "piece1";
@@ -85,6 +103,8 @@ export class BoardView extends Phaser.GameObjects.Container {
   private syncSprites(animate = false): void {
     for (const [, img] of this.sprites) img.destroy();
     this.sprites.clear();
+    for (const [, img] of this.shadows) img.destroy();
+    this.shadows.clear();
     const board = this.engine.board;
     for (let r = 0; r < board.rows; r++) {
       for (let c = 0; c < board.cols; c++) {
@@ -93,11 +113,13 @@ export class BoardView extends Phaser.GameObjects.Container {
         const { x, y } = this.pos(r, c);
         const sprite = this.scene.add.image(x + this.cellSize / 2, y + this.cellSize / 2, this.pieceTexture(r, c));
         sprite.setOrigin(0.5, 0.5);
-        const finalScale = (this.cellSize * 0.92) / 48;
-        sprite.setScale(finalScale);
+        const finalScale = this.baseScale();
+        sprite.setScale(finalScale).setDepth(10);
+        sprite.setData("base", finalScale);
         if (animate) sprite.setAlpha(0).setScale(finalScale * 0.2);
         this.add(sprite);
         this.sprites.set(cell.id, sprite);
+        this.ensureShadow(cell.id, x + this.cellSize / 2 + 5, y + this.cellSize * 0.96).setAlpha(0.92);
         if (animate) {
           this.scene.tweens.add({ targets: sprite, alpha: 1, scale: finalScale, duration: 180, delay: (r + c) * 12 });
         }
@@ -362,14 +384,22 @@ export class BoardView extends Phaser.GameObjects.Container {
           const toA = ev.kind === "swap" ? ev.from : ev.posA;
           const targetB = this.pos(toB.r, toB.c);
           const targetA = this.pos(toA.r, toA.c);
-          if (spriteA) {
-            this.scene.tweens.add({ targets: spriteA, x: targetB.x + this.cellSize / 2, y: targetB.y + this.cellSize / 2, duration: 92, ease: "Sine.easeInOut" });
-          }
-          if (spriteB) {
-            this.scene.tweens.add({ targets: spriteB, x: targetA.x + this.cellSize / 2, y: targetA.y + this.cellSize / 2, duration: 92, ease: "Sine.easeInOut" });
-            if (ev.kind === "revert") {
-              this.scene.tweens.add({ targets: spriteB, alpha: { from: 0.4, to: 1 }, duration: 110 });
+          const lift = (spr: Phaser.GameObjects.Image | undefined, dest: { x: number; y: number }, id: number): void => {
+            if (!spr) return;
+            const bs = (spr.getData("base") as number) ?? spr.scaleX;
+            this.scene.tweens.add({ targets: spr, x: dest.x + this.cellSize / 2, y: dest.y + this.cellSize / 2, duration: 92, ease: "Sine.easeInOut" });
+            // Levantada: crece un cacho mientras cruza, luego vuelve (da volumen).
+            this.scene.tweens.add({ targets: spr, scale: bs * 1.16, duration: 46, yoyo: true, ease: "Sine.easeOut" });
+            const sh = this.shadows.get(id);
+            if (sh) {
+              this.scene.tweens.add({ targets: sh, x: dest.x + this.cellSize / 2 + 5, duration: 92, ease: "Sine.easeInOut" });
+              this.scene.tweens.add({ targets: sh, alpha: 0.35, duration: 46, yoyo: true });
             }
+          };
+          lift(spriteA, targetB, ev.aId);
+          lift(spriteB, targetA, ev.bId);
+          if (spriteB && ev.kind === "revert") {
+            this.scene.tweens.add({ targets: spriteB, alpha: { from: 0.4, to: 1 }, duration: 110 });
           }
           await this.wait(95);
           break;
@@ -408,6 +438,11 @@ export class BoardView extends Phaser.GameObjects.Container {
               onComplete: () => sprite.destroy(),
             });
             this.sprites.delete(cell.id);
+            const sh = this.shadows.get(cell.id);
+            if (sh) {
+              sh.destroy();
+              this.shadows.delete(cell.id);
+            }
           }
           // Repintados del dado: cambian de color con un pulso.
           for (const rp of ev.repainted) {
@@ -465,7 +500,31 @@ export class BoardView extends Phaser.GameObjects.Container {
             const sprite = this.sprites.get(fall.id);
             if (!sprite) continue;
             const to = this.pos(fall.to.r, fall.to.c);
-            this.scene.tweens.add({ targets: sprite, x: to.x + this.cellSize / 2, y: to.y + this.cellSize / 2, duration: 118, ease: "Bounce.easeOut" });
+            const bs = (sprite.getData("base") as number) ?? sprite.scaleX;
+            // Cae estirándose; aterriza con aplaste. La sombra viaja con ella.
+            if (to.y > sprite.y - this.cellSize) sprite.setScale(bs * 0.86, bs * 1.2);
+            this.scene.tweens.add({
+              targets: sprite,
+              x: to.x + this.cellSize / 2,
+              y: to.y + this.cellSize / 2,
+              scaleX: bs,
+              scaleY: bs,
+              duration: 118,
+              ease: "Bounce.easeOut",
+              onComplete: () => {
+                this.scene.tweens.add({
+                  targets: sprite,
+                  scaleX: bs * 1.06,
+                  scaleY: bs * 0.86,
+                  duration: 55,
+                  yoyo: true,
+                });
+              },
+            });
+            const sh = this.shadows.get(fall.id);
+            if (sh) {
+              this.scene.tweens.add({ targets: sh, x: to.x + this.cellSize / 2 + 5, y: to.y + this.cellSize * 0.96, duration: 118, ease: "Sine.easeOut" });
+            }
           }
           await this.wait(125);
           break;
@@ -475,11 +534,21 @@ export class BoardView extends Phaser.GameObjects.Container {
             const { x, y } = this.pos(sp.row, sp.col);
             const sprite = this.scene.add.image(x + this.cellSize / 2, y - this.cellSize, `piece${sp.type}`);
             sprite.setOrigin(0.5, 0.5);
-            sprite.setScale((this.cellSize * 0.92) / 48);
+            const bs = this.baseScale();
+            sprite.setScale(bs).setDepth(10);
+            sprite.setData("base", bs);
             sprite.setDepth(10);
             this.add(sprite);
             this.sprites.set(sp.id, sprite);
-            this.scene.tweens.add({ targets: sprite, y: y + this.cellSize / 2, duration: 118, ease: "Sine.easeOut" });
+            this.scene.tweens.add({
+              targets: sprite,
+              y: y + this.cellSize / 2,
+              duration: 118,
+              ease: "Sine.easeOut",
+            });
+            const sh = this.ensureShadow(sp.id, x + this.cellSize / 2 + 5, y + this.cellSize * 0.96);
+            sh.setAlpha(0);
+            this.scene.tweens.add({ targets: sh, alpha: 0.92, duration: 118 });
           }
           await this.wait(125);
           break;
@@ -489,6 +558,11 @@ export class BoardView extends Phaser.GameObjects.Container {
             const sprite = this.sprites.get(co.id);
             if (!sprite) continue;
             this.sprites.delete(co.id);
+            const sh = this.shadows.get(co.id);
+            if (sh) {
+              sh.destroy();
+              this.shadows.delete(co.id);
+            }
             this.spawnBurst(sprite.x, sprite.y, 0xffe14d);
             this.scene.tweens.add({ targets: sprite, y: sprite.y + this.cellSize, alpha: 0, duration: 240, onComplete: () => sprite.destroy() });
           }

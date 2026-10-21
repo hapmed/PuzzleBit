@@ -53,6 +53,7 @@ Instalable como **PWA** en móvil y escritorio.
 - ✅ **Entrada directa**: pantalla INSERT COIN (tap para saltar) → el juego abre en el **último nivel jugado** (o el ∞). Sin pantalla de selección de niveles.
 - ✅ **Reglas de rompe con formas**: cuadros 2×2 (→ wrapped), fusiones con líneas (→ bomba con 6+ celdas) y **dado** por dos cuadros pegados (repinta 3×3 y arma cascadas). Combos entre especiales intactos.
 - ✅ **Estética de gabinete 90s**: scanlines CRT, ¿LISTO?/¡YA! con fanfarria, chip HI-SCOR, voz de anunciador (es-ES), stingers por cascada, mascota bonus clicable y espectáculos de pantalla (ondas expansivas, barridos, aguaceros, mega-rompe, confeti de victoria).
+- ✅ **Tablero a tamaño de teléfono**: celdas de hasta 92 px (el 8×8 ocupa ~95 % del ancho), botón "salir" junto a los boosters, piezas al 98 % de la celda con sombras que siguen cada caída/swap (lift, estiramiento y aplaste de aterrizaje).
 
 **Desplegado (HomeLab, 2026-10-21):**
 

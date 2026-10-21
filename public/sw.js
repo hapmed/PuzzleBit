@@ -1,7 +1,7 @@
 /* PuzzleBit service worker: precache del shell, cache-first para assets y
  * network-first para la API. El progreso se sincroniza al volver online. */
 
-const VERSION = "puzzlebit-v5";
+const VERSION = "puzzlebit-v6";
 const SHELL = [
   "./",
   "./index.html",

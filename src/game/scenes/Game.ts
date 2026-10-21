@@ -61,12 +61,13 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-    // Layout del tablero: caben filas y columnas en el área disponible.
+    // Layout del tablero: ocupa casi todo el ancho del teléfono.
     const topMargin = 110;
-    const bottomMargin = 70;
-    const availW = w - 32;
+    const bottomMargin = 64;
+    const sideMargin = 16;
+    const availW = w - sideMargin * 2;
     const availH = h - topMargin - bottomMargin;
-    const cellSize = Math.max(28, Math.min(Math.floor(availW / level.cols), Math.floor(availH / level.rows), 72));
+    const cellSize = Math.max(28, Math.min(Math.floor(availW / level.cols), Math.floor(availH / level.rows), 92));
     const originX = Math.floor((w - cellSize * level.cols) / 2);
     const originY = Math.floor(topMargin + (availH - cellSize * level.rows) / 2);
 
@@ -77,8 +78,8 @@ export class GameScene extends Phaser.Scene {
     addCRTOverlays(this);
     this.arcadeIntro();
 
-    // Botón de pausa/salir.
-    const exit = this.add.container(w - 56, 76);
+    // Botón de pausa/salir (abajo a la derecha, junto a los boosters).
+    const exit = this.add.container(w - 62, this.scale.height - 44);
     const bgExit = this.add.rectangle(0, 0, 74, 40, COLORS.panel).setStrokeStyle(2, COLORS.border);
     const exitLabel = this.add.text(0, 0, "salir", { fontFamily: '"Courier New", monospace', fontSize: "16px", color: "#fff" }).setOrigin(0.5);
     exit.add([bgExit, exitLabel]);

@@ -256,6 +256,20 @@ export function createGameTextures(scene: Phaser.Scene): void {
   }
   paintTexture(scene, "star", gs.rows(), 3);
 
+  // Sombra suave de pieza (elipse translúcida) para dar cuerpo al movimento.
+  const gsh = new PixelGrid();
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const ex = (x - 7.5) / 6.4;
+      const ey = (y - 7.5) / 3.4;
+      const d = ex * ex + ey * ey;
+      if (d <= 0.55) gsh.set(x, y, "rgba(6,4,18,0.5)");
+      else if (d <= 0.85) gsh.set(x, y, "rgba(6,4,18,0.32)");
+      else if (d <= 1) gsh.set(x, y, "rgba(6,4,18,0.16)");
+    }
+  }
+  paintTexture(scene, "shadow", gsh.rows(), SCALE);
+
   // Fondo degradado por bandas con estrellas tenues.
   const w = 360;
   const h = 640;
