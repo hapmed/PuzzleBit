@@ -45,8 +45,15 @@ Instalable como **PWA** en móvil y escritorio.
 
 - ✅ **Fase 1** — Motor match-3 determinista (`src/game/engine/`: PRNG sembrado, tablero sin matches iniciales, matches, cascadas, puntuación, reverso de swaps inválidos, reshuffle) + 22 tests de Vitest. 10 niveles base y victoria/derrota con estrellas. Escenas Phaser: Boot, Preload, Menu, LevelMap, Game, Ranking, Daily. Controles táctiles/ratón/arrastre. Arte pixel 48×48 generado en runtime (sin assets externos).
 - ✅ **Fase 2** — PWA instalable (`manifest.webmanifest`, service worker con cache del shell y network-first para la API, iconos 192/512 generados). Audio chiptune generado (`public/audio/`). Piezas especiales: rayada H/V, envuelta (3×3), bomba (color) y combos entre especiales.
-- ✅ **Fase 3** — Backend FastAPI + SQLAlchemy 2 + Alembic (`backend/`): health, niveles, progreso (upsert solo mejora), puntuaciones con validación y ranking global/por nivel. Cliente sincroniza con cola offline (`localStorage`) al recuperar conexión. 9 tests de pytest; ruff y mypy limpios.
-- ✅ **Fase 4** — 50 niveles (`data/levels.json`, generados con `scripts/gen-levels.cjs`) con objetivos variados: puntuación, recolectar color, limpiar jelly, ingredientes transportables al fondo. Bloqueadores: cajas (daño de especiales) y jelly. Boosters: martillo, mezcla y movimiento extra. Reto diario determinista por fecha.
+- ✅ **Fase 3** — Backend FastAPI + SQLAlchemy 2 + Alembic (`backend/`): health, niveles, progreso (upsert solo mejora), puntuaciones con validación y ranking global/por nivel (incluye modo infinito). Cliente sincroniza con cola offline (`localStorage`) al recuperar conexión. 10 tests de pytest; ruff y mypy limpios.
+- ✅ **Fase 4** — 50 niveles (`data/levels.json`, generados con `scripts/gen-levels.cjs`) con objetivos variados: puntuación, recolectar color, limpiar jelly, ingredientes transportables al fondo. Bloqueadores: cajas (daño de especiales) y jelly. Boosters: martillo, mezcla y movimiento extra. Reto diario determinista por fecha. **Modo infinito**: niveles procedurales deterministas (`src/game/endless.ts`) con id > 50, dificultad creciente y ranking aceptado por el backend.
+
+**Desplegado (HomeLab, 2026-10-21):**
+
+- 🌐 **https://puzzlebit.hapmed.qzz.io** — HTTPS vía Cloudflare Tunnel (`puzzlebit.hapmed.qzz.io` → `:8086` en el host).
+- `cd /opt/apps/PuzzleBit/ops && docker compose up -d --build`: `ops-api-1` (FastAPI + Postgres en `apps-net`) y `ops-web-1` (Caddy en `:8086` con el build de Phaser).
+- Base `puzzlebit` creada en el PostgreSQL existente; Alembic sellado (schema `0001_init`).
+- Backend `ops/compose.yaml`: red interna propia para API/CDN (evita colisión de aliases con otras pilas del HomeLab).
 
 **Cómo jugar (máquina local):**
 
@@ -73,10 +80,9 @@ docker compose -f ops/compose.yaml up -d   # Caddy en :8086 + API en red interna
 
 ## PUERTOS Y DOMINIO
 
-- Web: `127.0.0.1:8086`.
-- API: `api:8000` (solo red interna).
-- Dominio: `puzzlebit.hapmed.qzz.io`.
-- Repo: `hapmed/PuzzleBit`.
+- Web (público): `https://puzzlebit.hapmed.qzz.io` (Cloudflare Tunnel).
+- Web local: `127.0.0.1:8086` (Caddy).
+- API: `api:8000` (solo red interna del stack).
 
 ## Documentación
 

@@ -48,10 +48,24 @@ El MVP usa solo puntuación; el resto llega después.
 ## Niveles
 
 - Datos en [`data/levels.json`](../data/levels.json).
-- 10 niveles iniciales.
+- 50 niveles de campaña (difultad, objetivos y bloqueadores crecientes).
 - Dificultad por movimientos, tipos de pieza y objetivo.
 - Desbloqueo secuencial.
 - Estrellas: 1, 2 y 3 según puntuación.
+
+## Modo infinito
+
+- Desbloqueado tras completar cualquier nivel de campaña (nodo **∞** en el mapa).
+- Niveles `id > 50` generados en el cliente de forma **determinista** (misma id →
+  mismo nivel) en `src/game/endless.ts`, con dificultad creciente:
+  - Objetivos rotando: puntuación, recolectar color, limpiar jelly (rombo),
+    ingredientes (con objetivo secundario de puntuación).
+  - Grilla 7×7 al inicio, 8×8 después; tipos 5→6 con la profundidad.
+  - Crate spice con HP 2 y jelly en rombos que crecen con el nivel.
+- El usuario avanza de nivel ∞ N a N+1 al ganar; la progresión es propia e
+  independiente de la campaña.
+- Ranking: el backend acepta ids `1..100000` y suma los niveles infinitos al
+  ranking global; por nivel aparecen si alguien los jugó.
 
 ## Ranking
 

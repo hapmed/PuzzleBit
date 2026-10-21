@@ -12,7 +12,8 @@ const { chromium } = require("playwright");
     if (m.type() === "error") errors.push(m.text());
   });
 
-  await page.goto("http://127.0.0.1:8086/", { waitUntil: "networkidle" });
+  const BASE = process.env.BASE_URL || "http://127.0.0.1:8086";
+  await page.goto(BASE + "/", { waitUntil: "networkidle" });
   await page.waitForSelector("canvas", { timeout: 15000 });
   await page.waitForTimeout(2200);
 
@@ -45,7 +46,7 @@ const { chromium } = require("playwright");
     const canvas = document.querySelector("canvas");
     return {
       canvas: !!canvas,
-      swControlled: !!navigator.serviceWorker.controller,
+      swControlled: !!navigator.serviceWorker?.controller,
     };
   });
 
