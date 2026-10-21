@@ -1,5 +1,5 @@
 services:
-  # API FastAPI (solo red interna; Caddy la sirve en /api/*).
+  # API FastAPI (red interna propia; shared apps-net solo para llegar a postgres).
   api:
     build:
       context: ..
@@ -10,6 +10,8 @@ services:
     expose:
       - "8000"
     restart: unless-stopped
+    networks: [internal, apps-net]
+
   # Frontend estático + reverse proxy.
   web:
     image: caddy:2-alpine
@@ -21,8 +23,10 @@ services:
       - ../dist:/usr/share/caddy:ro
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
+    networks: [internal]
 
+# Red interna: evita colisión de aliases con otras pilas del HomeLab.
 networks:
-  default:
-    name: apps-net
+  internal:
+  apps-net:
     external: true
