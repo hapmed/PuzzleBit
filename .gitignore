@@ -1,0 +1,33 @@
+# Secretos
+ACCESOS.md
+contras.txt
+.env
+.env.*
+!.env.example
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Logs / datos
+logs/
+*.log
+*.sqlite3
+*.db
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "levels": [
+    {
+      "id": 1,
+      "name": "Primer bocado",
+      "seed": 101,
+      "rows": 8,
+      "cols": 8,
+      "types": 5,
+      "moves": 20,
+      "objectives": [{ "type": "score", "target": 1000 }],
+      "stars": [1000, 1800, 2600],
+      "blockers": []
+    },
+    {
+      "id": 2,
+      "name": "Dulce línea",
+      "seed": 102,
+      "rows": 8,
+      "cols": 8,
+      "types": 5,
+      "moves": 22,
+      "objectives": [{ "type": "score", "target": 1500 }],
+      "stars": [1500, 2700, 3900],
+      "blockers": []
+    },
+    {
+      "id": 3,
+      "name": "Combo blando",
+      "seed": 103,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 22,
+      "objectives": [{ "type": "score", "target": 2000 }],
+      "stars": [2000, 3600, 5200],
+      "blockers": []
+    },
+    {
+      "id": 4,
+      "name": "Cascada corta",
+      "seed": 104,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 24,
+      "objectives": [{ "type": "score", "target": 2500 }],
+      "stars": [2500, 4500, 6500],
+      "blockers": []
+    },
+    {
+      "id": 5,
+      "name": "Menta fuerte",
+      "seed": 105,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 24,
+      "objectives": [{ "type": "score", "target": 3000 }],
+      "stars": [3000, 5400, 7800],
+      "blockers": []
+    },
+    {
+      "id": 6,
+      "name": "Caramelo duro",
+      "seed": 106,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 25,
+      "objectives": [{ "type": "score", "target": 3500 }],
+      "stars": [3500, 6300, 9100],
+      "blockers": []
+    },
+    {
+      "id": 7,
+      "name": "Doble giro",
+      "seed": 107,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 25,
+      "objectives": [{ "type": "score", "target": 4000 }],
+      "stars": [4000, 7200, 10400],
+      "blockers": []
+    },
+    {
+      "id": 8,
+      "name": "Chispa",
+      "seed": 108,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 26,
+      "objectives": [{ "type": "score", "target": 4500 }],
+      "stars": [4500, 8100, 11700],
+      "blockers": []
+    },
+    {
+      "id": 9,
+      "name": "Azúcar alta",
+      "seed": 109,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 28,
+      "objectives": [{ "type": "score", "target": 5000 }],
+      "stars": [5000, 9000, 13000],
+      "blockers": []
+    },
+    {
+      "id": 10,
+      "name": "PuzzleBit",
+      "seed": 110,
+      "rows": 8,
+      "cols": 8,
+      "types": 6,
+      "moves": 30,
+      "objectives": [{ "type": "score", "target": 6000 }],
+      "stars": [6000, 10800, 15600],
+      "blockers": []
+    }
+  ]
+}
