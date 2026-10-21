@@ -409,6 +409,20 @@ export class BoardView extends Phaser.GameObjects.Container {
             });
             this.sprites.delete(cell.id);
           }
+          // Repintados del dado: cambian de color con un pulso.
+          for (const rp of ev.repainted) {
+            const sprite = this.sprites.get(rp.id);
+            if (!sprite) continue;
+            sprite.setTexture(textureForPiece(rp.type, "none"));
+            this.scene.tweens.add({
+              targets: sprite,
+              scaleX: sprite.scale * 1.15,
+              scaleY: sprite.scale * 1.15,
+              duration: 90,
+              yoyo: true,
+            });
+            this.spawnBurst(sprite.x, sprite.y, PIECE_TINTS[rp.type]);
+          }
           if (ev.cells.length > 0) {
             const mid = ev.cells[Math.floor(ev.cells.length / 2)];
             const { x, y } = this.pos(mid.r, mid.c);
@@ -416,11 +430,19 @@ export class BoardView extends Phaser.GameObjects.Container {
             const cy = y + this.cellSize / 2 - this.cellSize * 0.4;
             this.lastRemoval = { x: cx, y: cy, cells: ev.cells.length };
             // ——— Pantalla completa: cada rompe tiene su show ———
-            shockwave(this.scene, cx, cy, ev.triggers.length > 0 ? 0xffffff : 0xffd95e, ev.triggers.length > 0 ? 0.95 : 0.55);
+            const power = ev.squares >= 2 ? 1.2 : ev.triggers.length > 0 ? 0.95 : 0.55;
+            shockwave(this.scene, cx, cy, ev.triggers.length > 0 ? 0xffffff : 0xffd95e, power);
             if (ev.created.length > 0) pixelRain(this.scene, 0xffe14d);
             if (ev.triggers.length >= 2 || this.cascadeCount >= 2) colorSweep(this.scene, 0xff9a3d);
             // Rompe con especial resuelta en cadena: mega espectáculo.
             if (ev.created.length > 0 && ev.triggers.length > 0) megaBreak(this.scene, cx, cy, 0xffe14d);
+            // Doble cuadro: triple onda + aguacero dorado + anuncio.
+            if (ev.squares >= 2) {
+              pixelRain(this.scene, 0xffe14d, 44);
+              announce("¡Doble cuadro!", this.scene);
+            }
+            // Cascada larga: estrellas lloviendo.
+            if (this.cascadeCount >= 3) pixelRain(this.scene, 0xffffff, 36);
           }
           // Especiales recién creadas: latido.
           if (ev.created.length) {

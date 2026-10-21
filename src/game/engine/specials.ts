@@ -10,6 +10,8 @@ export interface Shape {
   /** Piezas especiales que nacen en este paso. */
   creations: Array<{ r: number; c: number; special: SpecialKind }>;
   isLine: boolean;
+  /** Cuántos cuadros 2×2 se fusionaron en esta shape. */
+  squares: number;
 }
 
 interface ShapeNode {
@@ -20,7 +22,8 @@ interface ShapeNode {
   vertical: boolean;
   /** Longitud de la línea más larga dentro de la shape. */
   maxLine: number;
-  hasSquare: boolean;
+  /** Cuántos cuadros 2×2 quedaron fusionados en la shape. */
+  squareCount: number;
   /** Celda compartida cuando dos runs/cuadros se fusionan (cruce). */
   crossAt: BoardPosition | null;
 }
@@ -32,11 +35,11 @@ function newNodeFromRun(run: Run): ShapeNode {
     horizontal: false,
     vertical: false,
     maxLine: 0,
-    hasSquare: false,
+    squareCount: 0,
     crossAt: null,
   };
   if (run.square) {
-    node.hasSquare = true;
+    node.squareCount = 1;
   } else {
     if (run.horizontal) node.horizontal = true;
     else node.vertical = true;
@@ -48,15 +51,19 @@ function newNodeFromRun(run: Run): ShapeNode {
 
 /**
  * Regla de especial nacido de una shape final:
- * - shape de 6+ celdas (cuadros pegados, cuadro+línea) o línea de 5 → bomba.
- * - cruce T/L de líneas o cuadro (puro o pegado) → wrapped.
+ * - línea de 5 o shape de 8+ celdas → bomba.
+ * - dos cuadros fusionados → dado (pinta la zona al activarse).
+ * - shape de 6+ celdas (cuadro+línea) → bomba.
+ * - cruce T/L de líneas o un cuadro → wrapped.
  * - línea de 4 → rayada (orientación del swap si hay pista).
  * - línea de 3 → nada.
  */
 function decideSpecial(node: ShapeNode, hint: BoardPosition | null, swapAxis: "h" | "v" | null): SpecialKind {
-  if (node.cells.size >= 6 || node.maxLine >= 5) return "bomb";
+  if (node.maxLine >= 5 || node.cells.size >= 8) return "bomb";
+  if (node.squareCount >= 2) return "dice";
+  if (node.cells.size >= 6) return "bomb";
   if (node.horizontal && node.vertical) return "wrapped";
-  if (node.hasSquare) return "wrapped";
+  if (node.squareCount > 0) return "wrapped";
   if (node.maxLine === 4) {
     if (hint && swapAxis && node.cells.has(`${hint.r},${hint.c}`)) {
       return swapAxis === "h" ? "stripe-h" : "stripe-v";
@@ -98,7 +105,7 @@ export function shapesFromRuns(runs: Run[], hint: BoardPosition | null, swapAxis
         a.horizontal = a.horizontal || b.horizontal;
         a.vertical = a.vertical || b.vertical;
         a.maxLine = Math.max(a.maxLine, b.maxLine);
-        a.hasSquare = a.hasSquare || b.hasSquare;
+        a.squareCount += b.squareCount;
         if (a.crossAt === null) a.crossAt = shared;
         nodes.splice(j, 1);
         merged = true;
@@ -114,11 +121,12 @@ export function shapesFromRuns(runs: Run[], hint: BoardPosition | null, swapAxis
     if (special !== "none") {
       at = hint && node.cells.has(`${hint.r},${hint.c}`) ? hint : (node.crossAt ?? cells[Math.floor(cells.length / 2)]);
     }
-    const singleDir = !node.hasSquare && !(node.horizontal && node.vertical);
+    const singleDir = node.squareCount === 0 && !(node.horizontal && node.vertical);
     return {
       cells,
       type: node.type,
       isLine: singleDir,
+      squares: node.squareCount,
       creations: special === "none" || at === null ? [] : [{ r: at.r, c: at.c, special }],
     };
   });
@@ -129,16 +137,20 @@ export interface Expansion {
   triggers: Array<{ r: number; c: number; special: SpecialKind; type: number }>;
   /** Celdas de caja golpeadas (reciben daño, no se eliminan). */
   cratesHit: Set<number>;
+  /** Piezas repintadas por dados (cambian de color, no se eliminan). */
+  repaints: Array<{ r: number; c: number; id: number; type: number }>;
 }
 
 /**
  * Expande los disparos de piezas especiales: rayada = fila/columna,
- * wrapped = 3×3, bomba = todo el color. Los ingredientes no se eliminan
+ * wrapped = 3×3, bomba = todo el color, dado = repinta su 3×3 con un
+ * color sorteado (garantiza cascada). Los ingredientes no se eliminan
  * y las cajas cerradas reciben daño en vez de eliminarse.
  */
-export function expandRemovals(board: Board, seed: Set<number>, _rng: Rng): Expansion {
+export function expandRemovals(board: Board, seed: Set<number>, rng: Rng): Expansion {
   const removal = new Set<number>(seed);
   const cratesHit = new Set<number>();
+  const repaints: Expansion["repaints"] = [];
   const triggers: Expansion["triggers"] = [];
   const queue: Array<{ r: number; c: number; special: SpecialKind }> = [];
   const queued = new Set<number>();
@@ -186,10 +198,29 @@ export function expandRemovals(board: Board, seed: Set<number>, _rng: Rng): Expa
       board.each((other, r, c) => {
         if (!other.ingredient && other.type === bombType) enqueue(r, c);
       });
+    } else if (item.special === "dice") {
+      // El dado gira y pinta la vecindad 3×3 con un color sorteado.
+      const roll = 1 + rng.int(board.types);
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const r = item.r + dr;
+          const c = item.c + dc;
+          if (!board.inBounds(r, c)) continue;
+          const other = board.grid[r][c];
+          if (!other || other.ingredient) continue;
+          const k = board.key(r, c);
+          if (other.inCrate) {
+            cratesHit.add(k);
+            continue;
+          }
+          other.type = roll;
+          repaints.push({ r, c, id: other.id, type: roll });
+        }
+      }
     }
   }
 
-  return { removal, triggers, cratesHit };
+  return { removal, triggers, cratesHit, repaints };
 }
 
 /** Plan de disparo cuando se intercambian dos piezas especiales (o bomba + normal). */
@@ -202,6 +233,18 @@ export function comboPlan(
 ): Set<number> | null {
   const key = (p: BoardPosition) => board.key(p.r, p.c);
   const seeds = new Set<number>();
+
+  // Dado presente: el dado y la otra especial (si la hay) se disparan cada uno
+  // por su cuenta al expandirse (los triggers manejan su propio efecto).
+  if (specA === "dice" || specB === "dice") {
+    const dicePos = specA === "dice" ? a : b;
+    seeds.add(key(dicePos));
+    if (specA !== "none" && specB !== "none") {
+      seeds.add(key(a));
+      seeds.add(key(b));
+    }
+    return seeds;
+  }
 
   const isStripe = (s: SpecialKind) => s === "stripe-h" || s === "stripe-v";
 

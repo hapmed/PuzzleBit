@@ -1,6 +1,6 @@
 /** Tipos compartidos de la definición de niveles (fuente común cliente/backend). */
 
-export type SpecialKind = "none" | "stripe-h" | "stripe-v" | "wrapped" | "bomb";
+export type SpecialKind = "none" | "stripe-h" | "stripe-v" | "wrapped" | "bomb" | "dice";
 export type BlockerKind = "crate" | "jelly";
 export type ObjectiveKind = "score" | "collect" | "clear" | "ingredient";
 

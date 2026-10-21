@@ -145,6 +145,20 @@ const bombOverlay: Painter = (b, color) => {
   }
 };
 
+/** Dado: marco blanco + 5 puntos, sobre la pieza de base. */
+const diceOverlay: Painter = (b) => {
+  for (let i = 2; i < 14; i++) {
+    b.set(i, 2, "#ffffff");
+    b.set(i, 13, "#ffffff");
+    b.set(2, i, "#ffffff");
+    b.set(13, i, "#ffffff");
+  }
+  for (const [px, py] of [[5, 5], [10, 5], [7, 7], [5, 10], [10, 10]]) {
+    b.set(px, py, "#ffffff");
+    b.set(px, py + 1, "#ffffff");
+  }
+};
+
 function paintTexture(scene: Phaser.Scene, key: string, rows: string[][], scale: number): void {
   const h = rows.length;
   const w = rows[0]?.length ?? 0;
@@ -175,6 +189,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
       [`piece${i + 1}-stripe-h`, stripeOverlayColor],
       [`piece${i + 1}-stripe-v`, stripeOverlayMono],
       [`piece${i + 1}-wrapped`, wrappedOverlay],
+      [`piece${i + 1}-dice`, diceOverlay],
     ];
     for (const [key, overlay] of cds) {
       const g = new PixelGrid();
@@ -270,6 +285,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
 
 export function textureForPiece(type: number, special: string): string {
   if (special === "bomb") return "piece-bomb";
+  if (special === "dice") return `piece${type}-dice`;
   if (special === "stripe-h") return `piece${type}-stripe-h`;
   if (special === "stripe-v") return `piece${type}-stripe-v`;
   if (special === "wrapped") return `piece${type}-wrapped`;

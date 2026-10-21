@@ -48,6 +48,9 @@ export type GameEvent =
       triggers: Array<{ r: number; c: number; special: SpecialKind }>;
       revealed: Array<{ r: number; c: number; id: number }>;
       jelly: number[];
+      repainted: Array<{ r: number; c: number; id: number; type: number }>;
+      /** Cuadros 2×2 que participaron en este paso (para la vista). */
+      squares: number;
       score: number;
     }
   | { kind: "fall"; falls: FallEvent[] }
@@ -187,9 +190,9 @@ export class Engine {
     if (comboSeeds) {
       // Bucle de resolución con las semillas del combo como primer paso.
       let step = 0;
-      let seeds: Set<number> | null = new Set(comboSeeds);
-      while (seeds !== null) {
-        seeds = this.resolveStep(seeds, step, events);
+      let pending: { seeds: Set<number>; squares: number } | null = { seeds: comboSeeds, squares: 0 };
+      while (pending !== null) {
+        pending = this.resolveStep(pending.seeds, step, events, undefined, pending.squares);
         step++;
       }
     } else {
@@ -204,7 +207,14 @@ export class Engine {
           for (const p of shape.cells) seedSet.add(this.key(p.r, p.c));
           for (const cr of shape.creations) seedSet.delete(this.key(cr.r, cr.c));
         }
-        this.resolveStep(seedSet, step, events, shapes.map((sh) => sh.creations).flat());
+        const squareCount = shapes.reduce((n, sh) => n + sh.squares, 0);
+        this.resolveStep(
+          seedSet,
+          step,
+          events,
+          shapes.map((sh) => sh.creations).flat(),
+          squareCount,
+        );
         hintPos = null;
         step++;
       }
@@ -231,7 +241,8 @@ export class Engine {
     step: number,
     events: GameEvent[],
     creationsHint?: Array<{ r: number; c: number; special: SpecialKind }>,
-  ): Set<number> | null {
+    squaresIn = 0,
+  ): { seeds: Set<number>; squares: number } | null {
     const board = this.board;
     // La expansión puede encadenar especiales dentro de las semillas.
     const expansion = expandRemovals(board, seeds, this.rng);
@@ -258,6 +269,15 @@ export class Engine {
         if (j <= 1) board.jelly.delete(key);
         else board.jelly.set(key, j - 1);
       }
+    }
+
+    // Repintados del dado: cambian de color sobre piezas que siguen vivas.
+    const repainted: Array<{ r: number; c: number; id: number; type: number }> = [];
+    for (const rp of expansion.repaints) {
+      const cell = board.grid[rp.r][rp.c];
+      if (!cell || cell.inCrate || cell.ingredient) continue;
+      cell.type = rp.type;
+      repainted.push(rp);
     }
 
     const created: CreatedInfo[] = [];
@@ -305,6 +325,8 @@ export class Engine {
       triggers: expansion.triggers.map((t) => ({ r: t.r, c: t.c, special: t.special })),
       revealed,
       jelly: jellyKeys,
+      repainted,
+      squares: squaresIn,
       score: this.score,
     });
 
@@ -318,7 +340,8 @@ export class Engine {
     if (nextRuns.length > 0) {
       const nextSeed = new Set<number>();
       for (const run of nextRuns) for (const p of run.cells) nextSeed.add(this.key(p.r, p.c));
-      return nextSeed;
+      const nextSquares = nextRuns.reduce((n, r) => n + (r.square ? 1 : 0), 0);
+      return { seeds: nextSeed, squares: nextSquares };
     }
     return null;
   }
@@ -366,9 +389,9 @@ export class Engine {
     }
     const seeds = new Set<number>([this.key(pos.r, pos.c)]);
     let step = 0;
-    let next: Set<number> | null = seeds;
-    while (next !== null) {
-      next = this.resolveStep(next, step, events);
+    let pending: { seeds: Set<number>; squares: number } | null = { seeds, squares: 0 };
+    while (pending !== null) {
+      pending = this.resolveStep(pending.seeds, step, events, undefined, pending.squares);
       step++;
     }
     this.applyIngredientArrivals(events);

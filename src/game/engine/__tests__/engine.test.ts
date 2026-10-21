@@ -487,6 +487,77 @@ describe("cuadros 2×2 (shapes con esquinas)", () => {
   });
 });
 
+describe("dado (dos cuadros pegados)", () => {
+  function fillPattern(board: Board, rows: number, cols: number): void {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        board.grid[r][c] = board.makePiece(((r + 2 * c) % 3) + 1);
+      }
+    }
+  }
+
+  it("dos cuadros fusionados nacen dado", () => {
+    const board = Board.createFromLevel(simpleLevel(5, 5, 3));
+    fillPattern(board, 5, 5);
+    // Rectángulo 2×3 de tipo 1 (filas 0-1, cols 0-2); se corta el patrón
+    // en (0,3) y (2,2) para que nada extienda el grupo.
+    for (let r = 0; r <= 1; r++) {
+      for (let c = 0; c <= 2; c++) board.grid[r][c] = board.makePiece(1);
+    }
+    board.grid[0][3] = board.makePiece(2);
+    board.grid[2][2] = board.makePiece(2);
+    const runs = findMatches(board);
+    expect(runs.length).toBe(4); // 2 líneas de 3 + 2 cuadros
+    const shapes = shapesFromRuns(runs, null, null);
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0].cells).toHaveLength(6);
+    expect(shapes[0].squares).toBe(2);
+    expect(shapes[0].creations).toHaveLength(1);
+    expect(shapes[0].creations[0].special).toBe("dice");
+  });
+
+  it("expandRemovals: el dado repinta su 3×3 y no elimina vecinos", () => {
+    const board = Board.createFromLevel(simpleLevel(5, 5, 3));
+    fillPattern(board, 5, 5);
+    board.grid[2][2] = board.makePiece(1);
+    board.grid[2][2]!.special = "dice";
+    const ex = expandRemovals(board, new Set([board.key(2, 2)]), new Rng(9));
+    expect(ex.triggers.some((t) => t.special === "dice")).toBe(true);
+    // Solo el dado se elimina; el resto gana un color común.
+    expect(ex.removal.size).toBe(1);
+    expect(ex.removal.has(board.key(2, 2))).toBe(true);
+    expect(ex.repaints.length).toBe(9); // todo el 3×3 (tablero lleno)
+    const roll = ex.repaints[0].type;
+    expect(roll).toBeGreaterThanOrEqual(1);
+    expect(roll).toBeLessThanOrEqual(3);
+    for (const rp of ex.repaints) {
+      expect(rp.type).toBe(roll);
+      expect(board.grid[rp.r][rp.c]!.type).toBe(roll);
+    }
+  });
+
+  it("swap con dado: consume movimiento, pinta la zona y encadena", () => {
+    const engine = new Engine(simpleLevel(5, 5, 3));
+    const board = engine.board;
+    fillPattern(board, 5, 5);
+    board.grid[2][3] = board.makePiece(2);
+    board.grid[2][3]!.special = "dice";
+    const moves0 = engine.movesLeft;
+    // dado + pieza normal: se dispara el dado aunque no arme match.
+    const result = engine.attemptSwap({ r: 2, c: 2 }, { r: 2, c: 3 });
+    expect(result.ok).toBe(true);
+    expect(engine.movesLeft).toBe(moves0 - 1);
+    const remove = result.events.find((e) => e.kind === "remove");
+    expect(remove).toBeTruthy();
+    if (remove?.kind === "remove") {
+      expect(remove.cells.length).toBe(1); // solo el dado cae
+      expect(remove.triggers.some((t) => t.special === "dice")).toBe(true);
+      expect(remove.repainted.length).toBe(8); // el 3×3 menos el dado, que cae
+      expect(engine.score).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("bloqueadores y objetivos", () => {
   function blockerLevel(): LevelDef {
     return {

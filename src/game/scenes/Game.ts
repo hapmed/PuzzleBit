@@ -8,7 +8,7 @@ import { createDailyLevel } from "../daily";
 import { createEndlessLevel } from "../endless";
 import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
-import { addCRTOverlays, screenPunch } from "../fx";
+import { addCRTOverlays, screenPunch, victorySplash } from "../fx";
 import { announce, playSfx } from "../sfx";
 import {
   finalScoreWithMovesLeft,
@@ -236,8 +236,8 @@ export class GameScene extends Phaser.Scene {
   private finishVictory(): void {
     const finalScore = finalScoreWithMovesLeft(this.engine.score, this.engine.movesLeft);
     const stars = starsForScore(finalScore, this.engine.level.stars);
-    const delay = 500;
-    this.showOverlay("¡WIN!", stars, finalScore, delay);
+    victorySplash(this); // confeti multicolor + ondas al ganar
+    this.showOverlay("¡WIN!", stars, finalScore, 500);
   }
 
   private finishDefeat(): void {

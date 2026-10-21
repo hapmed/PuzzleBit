@@ -76,6 +76,9 @@ El MVP usa solo puntuación; el resto llega después.
 - **Cuadro 2×2** → rompe las 4 piezas y nace una wrapped; si el cuadro está
   pegado a líneas del mismo color se fusionan con ellas y con 6+ celdas
   conectadas nace una **bomba**.
+- **Dos cuadros pegados** → nace un **dado**: al dispararse gira y **repinta
+  su vecindad 3×3 con un color suerte** (no elimina), lo que dispara cascadas
+  por sí solo. Con líneas más largas u 8+ celdas conectadas manda la bomba.
 - El generador inicial y las barajas jamás dejan cuadros o líneas sueltos.
 
 ## Sazonador arcade (90s)
@@ -89,6 +92,9 @@ El MVP usa solo puntuación; el resto llega después.
   sube de nivel, **lluvia de destellos** al nacer una especial y
   **mega-rompe** (flash + triple onda + aguacero) para jugadas con especial
   que además estalla. Timings recortados: swap ~92 ms, caída ~118 ms.
+- **Doble cuadro = triple onda**: anillo triple, aguacero dorado y voz propia.
+- **Victoria**: confeti multicolor a todo lo ancho (5 tandas), flash dorado
+  y ondas concéntricas antes del panel de estrellas.
 - Partículas del color de cada pieza, `+N` flotante y banner de cascada con
   **tambores de anunciador** (vox2..vox5 generados) y **voz** por
   `speechSynthesis` es-ES (se puede callar con `localStorage pb.voiceoff=1`).

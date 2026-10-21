@@ -60,7 +60,7 @@ export function addCRTOverlays(scene: Phaser.Scene, alpha = 0.11): void {
  */
 export function shockwave(scene: Phaser.Scene, x: number, y: number, tint: number, power = 0.5): void {
   const maxR = Math.hypot(scene.scale.width, scene.scale.height) * 1.15;
-  const rings = power >= 1 ? [0, 90] : [0];
+  const rings = power >= 1.2 ? [0, 90, 180] : power >= 0.9 ? [0, 90] : [0];
   for (const delay of rings) {
     const ring = scene.add.circle(x, y, Math.max(8, 18 * power), 0x000000, 0);
     ring.setStrokeStyle(Math.round(4 + 7 * Math.min(power, 1.6)), tint, 0.85);
@@ -122,5 +122,19 @@ export function megaBreak(scene: Phaser.Scene, x: number, y: number, tint: numbe
   shockwave(scene, x, y, 0xffffff, 1.4);
   shockwave(scene, x, y, tint, 1.0);
   pixelRain(scene, tint, 60);
+}
+
+/** Victoria: flash dorado, confeti multicolor a todo lo ancho y ondas. */
+export function victorySplash(scene: Phaser.Scene): void {
+  const w = scene.scale.width;
+  const h = scene.scale.height;
+  scene.cameras.main.flash(280, 255, 232, 130);
+  shockwave(scene, w / 2, h / 2, 0xffe14d, 1.25);
+  shockwave(scene, w / 2, h / 2, 0xffffff, 0.9);
+  colorSweep(scene, 0xffe14d);
+  const tints = [0xffe14d, 0x4dd6a0, 0xff5fa2, 0x4da3ff, 0xb06bff];
+  for (let i = 0; i < tints.length; i++) {
+    scene.time.delayedCall(i * 240, () => pixelRain(scene, tints[i], 48));
+  }
 }
 
