@@ -1,0 +1,30 @@
+services:
+  # API FastAPI (solo red interna; Caddy la sirve en /api/*).
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?necesita DATABASE_URL (psycopg)}
+      CORS_ORIGINS: "https://puzzlebit.hapmed.qzz.io,http://localhost:8086,http://127.0.0.1:8086"
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks: [puzzlebit]
+
+  # Frontend estático + reverse proxy.
+  web:
+    image: caddy:2-alpine
+    depends_on:
+      - api
+    ports:
+      - "8086:8086"
+    volumes:
+      - ../dist:/usr/share/caddy:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+    networks: [puzzlebit]
+
+networks:
+  puzzlebit:
+    external: false

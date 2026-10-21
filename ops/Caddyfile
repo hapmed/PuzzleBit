@@ -1,0 +1,16 @@
+:8086 {
+	encode gzip
+
+	root * /usr/share/caddy
+
+	# API → FastAPI interno.
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# SPA estático (fichero por defecto y fallback).
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

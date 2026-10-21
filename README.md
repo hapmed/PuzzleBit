@@ -30,13 +30,6 @@ Instalable como **PWA** en móvil y escritorio.
 - Servidor en el **HomeLab**.
 - Base `puzzlebit` en el PostgreSQL existente.
 
-## Puertos y dominio
-
-- Web: `127.0.0.1:8086`.
-- API: `api:8000` (solo red interna).
-- Dominio: `puzzlebit.hapmed.qzz.io`.
-- Repo: `hapmed/PuzzleBit`.
-
 ## Documentación
 
 - [`AGENTS.md`](./AGENTS.md) — brief completo para el agente.
@@ -48,4 +41,48 @@ Instalable como **PWA** en móvil y escritorio.
 
 ## Estado
 
-Especificación y niveles base listos. **Implementación pendiente.**
+**Implementado (Fases 1–4 del MVP):**
+
+- ✅ **Fase 1** — Motor match-3 determinista (`src/game/engine/`: PRNG sembrado, tablero sin matches iniciales, matches, cascadas, puntuación, reverso de swaps inválidos, reshuffle) + 22 tests de Vitest. 10 niveles base y victoria/derrota con estrellas. Escenas Phaser: Boot, Preload, Menu, LevelMap, Game, Ranking, Daily. Controles táctiles/ratón/arrastre. Arte pixel 48×48 generado en runtime (sin assets externos).
+- ✅ **Fase 2** — PWA instalable (`manifest.webmanifest`, service worker con cache del shell y network-first para la API, iconos 192/512 generados). Audio chiptune generado (`public/audio/`). Piezas especiales: rayada H/V, envuelta (3×3), bomba (color) y combos entre especiales.
+- ✅ **Fase 3** — Backend FastAPI + SQLAlchemy 2 + Alembic (`backend/`): health, niveles, progreso (upsert solo mejora), puntuaciones con validación y ranking global/por nivel. Cliente sincroniza con cola offline (`localStorage`) al recuperar conexión. 9 tests de pytest; ruff y mypy limpios.
+- ✅ **Fase 4** — 50 niveles (`data/levels.json`, generados con `scripts/gen-levels.cjs`) con objetivos variados: puntuación, recolectar color, limpiar jelly, ingredientes transportables al fondo. Bloqueadores: cajas (daño de especiales) y jelly. Boosters: martillo, mezcla y movimiento extra. Reto diario determinista por fecha.
+
+**Cómo jugar (máquina local):**
+
+```bash
+npm install
+npm run dev        # http://localhost:8086
+# build de producción + PWA:
+npm run build && npm run preview
+```
+
+**Backend local (apiKey opcional):**
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -e . # o uv sync
+.venv/bin/uvicorn app.main:app --port 8000
+```
+
+Con Docker (requiere Docker en el HomeLab):
+
+```bash
+docker compose -f ops/compose.yaml up -d   # Caddy en :8086 + API en red interna
+```
+
+## PUERTOS Y DOMINIO
+
+- Web: `127.0.0.1:8086`.
+- API: `api:8000` (solo red interna).
+- Dominio: `puzzlebit.hapmed.qzz.io`.
+- Repo: `hapmed/PuzzleBit`.
+
+## Documentación
+
+- [`AGENTS.md`](./AGENTS.md) — brief completo para el agente.
+- [`ACCESOS.md`](./ACCESOS.md) — servidor, BD, Docker, GitHub, Cloudflare, R2 y SMB (secretos, no versionar).
+- [`docs/GAMEPLAY.md`](./docs/GAMEPLAY.md) — mecánicas, niveles y ranking.
+- [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md) — cliente, API y datos.
+- [`docs/ARTE.md`](./docs/ARTE.md) — dirección pixel art.
+- [`data/levels.json`](./data/levels.json) — 50 niveles de campaña.

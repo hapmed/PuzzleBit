@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#14102b" />
+    <meta name="description" content="Puzzle — match-3 pixel art original. Intercambia piezas, encadena cascadas y gana estrellas." />
+    <title>PuzzleBit</title>
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #14102b;
+        overflow: hidden;
+        overscroll-behavior: none;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #app { position: fixed; inset: 0; }
+      #app canvas { display: block; image-rendering: pixelated; }
+      #splash {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        color: #f7f3ff; font-family: system-ui, sans-serif; letter-spacing: 0.2em;
+        font-size: 14px; pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="splash">PUZZLEBIT — cargando…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
