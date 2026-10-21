@@ -63,8 +63,26 @@ def test_post_score_and_ranking(client) -> None:
     assert per[0]["score"] == 2300
 
 
-def test_score_invalid_level(client) -> None:
+def test_score_endless_level_accepted(client) -> None:
+    """Modo infinito: ids fuera de la campaña se aceptan (los genera el cliente)."""
     res = client.post("/api/scores", json={"player": "ana", "level_id": 9999, "score": 100, "moves_left": 1})
+    assert res.status_code == 201
+    res = client.post("/api/progress", json={"player": "ana", "level_id": 9999, "stars": 2, "best_score": 100})
+    assert res.status_code == 200
+
+    # En el ranking por nivel aparecen los infinitos con actividad.
+    res = client.get("/api/ranking", params={"level_id": 9999})
+    assert res.status_code == 200
+    assert res.json()["perLevel"]["9999"][0]["player"] == "ana"
+
+    rows = client.get("/api/progress/ana").json()["progress"]
+    assert any(r["level_id"] == 9999 for r in rows)
+
+
+def test_score_out_of_range_rejected(client) -> None:
+    res = client.post("/api/scores", json={"player": "ana", "level_id": 0, "score": 100, "moves_left": 1})
+    assert res.status_code in (400, 422)
+    res = client.post("/api/scores", json={"player": "ana", "level_id": 100001, "score": 100, "moves_left": 1})
     assert res.status_code in (400, 422)
 
 

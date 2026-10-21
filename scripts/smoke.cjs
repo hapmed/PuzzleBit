@@ -36,8 +36,8 @@ const { chromium } = require("playwright");
   await page.waitForTimeout(1000);
   await page.screenshot({ path: "/tmp/opencode/s1-map.png" });
 
-  // Mapa → nodo nivel 1 (x=90/720, y=170/1280 → 0.125 / 0.133).
-  await clickAt(90 / 720, 170 / 1280);
+  // Mapa → nodo nivel 1 (grid 6 columnas: centro en x=360,y=150).
+  await clickAt(360 / 720, 150 / 1280);
   await page.waitForTimeout(2200);
   await page.screenshot({ path: "/tmp/opencode/s2-game.png" });
 

@@ -18,6 +18,14 @@ router = APIRouter(prefix="/api")
 
 VALID_NICK = re.compile(r"^[A-Za-z0-9 _-]{1,20}$")
 
+# Modo infinito: ids > campaña generados en el cliente (deterministas por id).
+ENDLESS_MAX = 100000
+
+
+def _valid_level_id(level_id: int) -> bool:
+    """Id de campaña o de nivel infinito (determinista en el cliente)."""
+    return 1 <= level_id <= ENDLESS_MAX
+
 
 @lru_cache
 def _levels_cached() -> dict[int, dict[str, Any]]:
@@ -59,6 +67,8 @@ async def get_level(level_id: int) -> dict[str, Any]:
 @router.post("/progress")
 async def post_progress(payload: ProgressIn, db: Session = Depends(get_db)):
     """Guarda el progreso de un nivel (upsert: solo mejora)."""
+    if not _valid_level_id(payload.level_id):
+        raise HTTPException(status_code=400, detail="Nivel fuera de rango")
     player = ensure_player(db, payload.player)
     existing = db.scalar(
         select(Progress).where(Progress.player_id == player.id, Progress.level_id == payload.level_id),
@@ -98,7 +108,7 @@ async def post_score(payload: ScoreIn, db: Session = Depends(get_db)):
     player = ensure_player(db, payload.player)
     if payload.score < 0:
         raise HTTPException(status_code=400, detail="Puntuación inválida")
-    if not _levels_cached().get(payload.level_id):
+    if not _valid_level_id(payload.level_id):
         raise HTTPException(status_code=400, detail="Nivel inexistente")
     db.add(Score(player_id=player.id, level_id=payload.level_id, score=payload.score, moves_left=payload.moves_left))
     db.commit()
@@ -127,11 +137,16 @@ async def ranking(level_id: int | None = None, db: Session = Depends(get_db)) ->
         return [{"player": nick, "score": score} for nick, score in pairs]
 
     if level_id is not None:
-        if level_id not in _levels_cached():
+        if not _valid_level_id(level_id):
             raise HTTPException(status_code=404, detail="Nivel no encontrado")
         per_level[str(level_id)] = to_list(entries_for(level_id))
     else:
         for lid in level_ids:
+            per_level[str(lid)] = to_list(entries_for(lid))
+        # Niveles infinitos con actividad también van al ranking por nivel.
+        campaign_max = max(level_ids) if level_ids else 0
+        played_endless = sorted({lid for scores in bests.values() for lid in scores if lid > campaign_max})
+        for lid in played_endless[:200]:
             per_level[str(lid)] = to_list(entries_for(lid))
 
     totals = sorted(

@@ -10,8 +10,6 @@ services:
     expose:
       - "8000"
     restart: unless-stopped
-    networks: [puzzlebit]
-
   # Frontend estático + reverse proxy.
   web:
     image: caddy:2-alpine
@@ -23,8 +21,8 @@ services:
       - ../dist:/usr/share/caddy:ro
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
-    networks: [puzzlebit]
 
 networks:
-  puzzlebit:
-    external: false
+  default:
+    name: apps-net
+    external: true

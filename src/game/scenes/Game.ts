@@ -5,6 +5,8 @@ import { Engine } from "../engine/engine";
 import type { TurnResult } from "../engine/engine";
 import { LEVELS } from "./Preload";
 import { createDailyLevel } from "../daily";
+import { createEndlessLevel } from "../endless";
+import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
 import {
   finalScoreWithMovesLeft,
@@ -28,10 +30,17 @@ export class GameScene extends Phaser.Scene {
   init(data: { levelId?: number; daily?: boolean }): void {
     this.isDaily = !!data.daily;
     this.levelId = data.levelId ?? 1;
+    if (this.levelId < 1) this.levelId = 1;
+  }
+
+  private resolveLevel(): LevelDef {
+    const found = LEVELS.find((l) => l.id === this.levelId);
+    if (found) return found;
+    return this.levelId > LEVELS.length ? createEndlessLevel(this.levelId, LEVELS.length) : LEVELS[0];
   }
 
   create(): void {
-    const level = this.isDaily ? createDailyLevel() : LEVELS.find((l) => l.id === this.levelId) ?? LEVELS[0];
+    const level = this.isDaily ? createDailyLevel() : this.resolveLevel();
     this.engine = new Engine(level);
     const w = this.scale.width;
     const h = this.scale.height;

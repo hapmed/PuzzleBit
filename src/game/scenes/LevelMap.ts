@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { LEVELS } from "./Preload";
-import { getAllProgress, maxPlayableLevel } from "../state";
+import { getAllProgress, isEndlessUnlocked, maxEndlessLevel, maxPlayableLevel } from "../state";
 import { COLORS } from "../config";
 
 /** Mapa de niveles: nodos con estrellas y desbloqueo secuencial. */
@@ -21,21 +21,27 @@ export class LevelMapScene extends Phaser.Scene {
 
     const unlocked = maxPlayableLevel(LEVELS.length);
     const progress = getAllProgress();
-    const perRow = 4;
-    const startX = w / 2 - (perRow - 1) * 90;
-    const step = 180;
-    const rowStep = 130;
+    const perRow = 6;
+    const step = 122;
+    const startX = w / 2 - ((perRow - 1) * step) / 2;
+    const startY = 150;
+    const rowStep = 112;
+    const totalRows = Math.ceil(LEVELS.length / perRow);
     let x = startX;
-    let y = 170;
+    let y = startY;
 
     LEVELS.forEach((lvl, idx) => {
       const node = idx + 1;
       const p = progress[String(node)];
       const isNext = node === unlocked;
       const playable = node <= unlocked;
+      const rowIdx = Math.floor(idx / perRow);
       const col = idx % perRow;
-      x = startX + col * step;
-      if (col === 0 && idx > 0) y += rowStep;
+      // Última fila incompleta: centrar los nodos que quedan.
+      const inRow = rowIdx < totalRows - 1 ? perRow : LEVELS.length - (totalRows - 1) * perRow;
+      const rowOffset = ((perRow - inRow) / 2) * step;
+      x = startX + rowOffset + col * step;
+      y = startY + rowIdx * rowStep;
       const container = this.add.container(x, y);
       const bg = this.add.rectangle(0, 0, 96, 96, playable ? COLORS.panel : 0x241d3f).setStrokeStyle(
         3,
@@ -81,8 +87,41 @@ export class LevelMapScene extends Phaser.Scene {
       }
     });
 
+    this.endlessNode(startY + (totalRows - 1) * rowStep + rowStep + 6);
     // Botón atrás.
     this.backButton();
+  }
+
+  /** Nodo del modo infinito: siempre avance a tu propio ritmo. */
+  private endlessNode(y: number): void {
+    const w = this.scale.width;
+    const total = LEVELS.length;
+    if (!isEndlessUnlocked(total)) return;
+    const deepest = maxEndlessLevel(total);
+    const x = w / 2;
+    const container = this.add.container(x, y);
+    const bg = this.add.rectangle(0, 0, 220, 72, COLORS.panel).setStrokeStyle(3, COLORS.accent);
+    container.add(bg);
+    const label = this.add.text(0, -14, `∞ nivel ${deepest}`, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
+    }).setOrigin(0.5);
+    container.add(label);
+    const completed = deepest - 1 - total;
+    const sub = this.add.text(0, 16, completed > 0 ? `${completed} superados` : "primera vez", {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "12px",
+      color: "#b0a6d9",
+    }).setOrigin(0.5);
+    container.add(sub);
+    container.setSize(220, 72);
+    container.setInteractive({ useHandCursor: true });
+    container.on("pointerdown", () => {
+      this.scene.start("Game", { levelId: deepest });
+    });
+    this.tweens.add({ targets: container, scale: { from: 1, to: 1.04 }, duration: 700, yoyo: true, repeat: -1 });
   }
 
   private backButton(): void {

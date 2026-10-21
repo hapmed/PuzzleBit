@@ -84,6 +84,26 @@ export function isLevelPlayable(levelId: number, totalLevels: number): boolean {
   return levelId <= maxPlayableLevel(totalLevels);
 }
 
+/**
+ * Siguiente nivel del modo infinito jugable (id > totalLevels).
+ * Progresión secuencial propia: se avanza al completar el nivel ∞ anterior.
+ */
+export function maxEndlessLevel(totalLevels: number): number {
+  const map = getAllProgress();
+  let id = totalLevels;
+  while (map[String(id + 1)]?.completed) id++;
+  return id + 1;
+}
+
+/** El modo infinito se abre al completar al menos un nivel de campaña. */
+export function isEndlessUnlocked(totalLevels: number): boolean {
+  const map = getAllProgress();
+  for (let i = 1; i <= totalLevels; i++) {
+    if (map[String(i)]?.completed) return true;
+  }
+  return false;
+}
+
 // ——— Reto diario ———
 export function getDailyState(): DailyState {
   const s = safeParse<DailyState>(localStorage.getItem(KEY_DAILY), { date: "", done: false, best: 0 });

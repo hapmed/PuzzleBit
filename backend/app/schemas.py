@@ -28,13 +28,13 @@ class PlayerIn(BaseModel):
 
 
 class ProgressIn(PlayerIn):
-    level_id: int = Field(ge=1, le=10000)
+    level_id: int = Field(ge=1, le=100000)  # incluye modo infinito
     stars: int = Field(ge=0, le=3)
     best_score: int = Field(ge=0, le=MAX_SCORE)
 
 
 class ScoreIn(PlayerIn):
-    level_id: int = Field(ge=1, le=10000)
+    level_id: int = Field(ge=1, le=100000)  # incluye modo infinito
     score: int = Field(ge=0, le=MAX_SCORE)
     moves_left: int = Field(ge=0, le=999)
 
