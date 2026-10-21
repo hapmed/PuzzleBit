@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { INGREDIENT_TEXTURE, PIECE_TINTS, textureForPiece } from "../art";
-import { screenPunch } from "../fx";
+import { colorSweep, megaBreak, pixelRain, screenPunch, shockwave } from "../fx";
 import type { Engine, GameEvent, TurnResult } from "../engine/engine";
 import { announce, playSfx } from "../sfx";
 
@@ -363,15 +363,15 @@ export class BoardView extends Phaser.GameObjects.Container {
           const targetB = this.pos(toB.r, toB.c);
           const targetA = this.pos(toA.r, toA.c);
           if (spriteA) {
-            this.scene.tweens.add({ targets: spriteA, x: targetB.x + this.cellSize / 2, y: targetB.y + this.cellSize / 2, duration: 110, ease: "Sine.easeInOut" });
+            this.scene.tweens.add({ targets: spriteA, x: targetB.x + this.cellSize / 2, y: targetB.y + this.cellSize / 2, duration: 92, ease: "Sine.easeInOut" });
           }
           if (spriteB) {
-            this.scene.tweens.add({ targets: spriteB, x: targetA.x + this.cellSize / 2, y: targetA.y + this.cellSize / 2, duration: 110, ease: "Sine.easeInOut" });
+            this.scene.tweens.add({ targets: spriteB, x: targetA.x + this.cellSize / 2, y: targetA.y + this.cellSize / 2, duration: 92, ease: "Sine.easeInOut" });
             if (ev.kind === "revert") {
               this.scene.tweens.add({ targets: spriteB, alpha: { from: 0.4, to: 1 }, duration: 110 });
             }
           }
-          await this.wait(115);
+          await this.wait(95);
           break;
         }
         case "remove": {
@@ -404,7 +404,7 @@ export class BoardView extends Phaser.GameObjects.Container {
               targets: sprite,
               scale: sprite.scale * 0.15,
               alpha: 0,
-              duration: 150,
+              duration: 120,
               onComplete: () => sprite.destroy(),
             });
             this.sprites.delete(cell.id);
@@ -412,7 +412,15 @@ export class BoardView extends Phaser.GameObjects.Container {
           if (ev.cells.length > 0) {
             const mid = ev.cells[Math.floor(ev.cells.length / 2)];
             const { x, y } = this.pos(mid.r, mid.c);
-            this.lastRemoval = { x: x + this.cellSize / 2, y: y + this.cellSize / 2 - this.cellSize * 0.4, cells: ev.cells.length };
+            const cx = x + this.cellSize / 2;
+            const cy = y + this.cellSize / 2 - this.cellSize * 0.4;
+            this.lastRemoval = { x: cx, y: cy, cells: ev.cells.length };
+            // ——— Pantalla completa: cada rompe tiene su show ———
+            shockwave(this.scene, cx, cy, ev.triggers.length > 0 ? 0xffffff : 0xffd95e, ev.triggers.length > 0 ? 0.95 : 0.55);
+            if (ev.created.length > 0) pixelRain(this.scene, 0xffe14d);
+            if (ev.triggers.length >= 2 || this.cascadeCount >= 2) colorSweep(this.scene, 0xff9a3d);
+            // Rompe con especial resuelta en cadena: mega espectáculo.
+            if (ev.created.length > 0 && ev.triggers.length > 0) megaBreak(this.scene, cx, cy, 0xffe14d);
           }
           // Especiales recién creadas: latido.
           if (ev.created.length) {
@@ -426,7 +434,7 @@ export class BoardView extends Phaser.GameObjects.Container {
               this.scene.tweens.add({ targets: ghost, alpha: 1, scale: ghost.scale * 1.08, yoyo: true, duration: 130, onComplete: () => ghost.destroy() });
             }
           }
-          await this.wait(165);
+          await this.wait(140);
           this.refreshOverlays();
           break;
         }
@@ -435,9 +443,9 @@ export class BoardView extends Phaser.GameObjects.Container {
             const sprite = this.sprites.get(fall.id);
             if (!sprite) continue;
             const to = this.pos(fall.to.r, fall.to.c);
-            this.scene.tweens.add({ targets: sprite, x: to.x + this.cellSize / 2, y: to.y + this.cellSize / 2, duration: 140, ease: "Bounce.easeOut" });
+            this.scene.tweens.add({ targets: sprite, x: to.x + this.cellSize / 2, y: to.y + this.cellSize / 2, duration: 118, ease: "Bounce.easeOut" });
           }
-          await this.wait(150);
+          await this.wait(125);
           break;
         }
         case "spawn": {
@@ -449,9 +457,9 @@ export class BoardView extends Phaser.GameObjects.Container {
             sprite.setDepth(10);
             this.add(sprite);
             this.sprites.set(sp.id, sprite);
-            this.scene.tweens.add({ targets: sprite, y: y + this.cellSize / 2, duration: 140, ease: "Sine.easeOut" });
+            this.scene.tweens.add({ targets: sprite, y: y + this.cellSize / 2, duration: 118, ease: "Sine.easeOut" });
           }
-          await this.wait(150);
+          await this.wait(125);
           break;
         }
         case "ingredient": {

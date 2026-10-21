@@ -2,9 +2,8 @@ import type { SpecialKind } from "../levels";
 import type { Board, BoardPosition } from "./board";
 import type { Rng } from "./random";
 import type { Run } from "./match";
-import { runHas } from "./match";
 
-/** Grupo con forma (run simple, cruce T/L o línea larga). */
+/** Grupo con forma (línea, cruce T/L, cuadro 2×2 o combinaciones pegadas). */
 export interface Shape {
   cells: BoardPosition[];
   type: number;
@@ -13,72 +12,116 @@ export interface Shape {
   isLine: boolean;
 }
 
-/** Indica qué especial nace de un run: 5 → bomba, 4 → rayada, cruce T/L → wrapped. */
-function specialFor(run: Run, hint: BoardPosition | null, swapAxis: "h" | "v" | null): SpecialKind {
-  if (run.cells.length >= 5) return "bomb";
-  if (run.cells.length >= 4) {
-    // Con hint, la dirección del intercambio decide; si no, la orientación del run.
-    if (hint && swapAxis) return swapAxis === "h" ? "stripe-h" : "stripe-v";
-    return run.horizontal ? "stripe-h" : "stripe-v";
+interface ShapeNode {
+  cells: Map<string, BoardPosition>;
+  type: number;
+  /** La shape contiene runs horizontales/verticales o cuadros. */
+  horizontal: boolean;
+  vertical: boolean;
+  /** Longitud de la línea más larga dentro de la shape. */
+  maxLine: number;
+  hasSquare: boolean;
+  /** Celda compartida cuando dos runs/cuadros se fusionan (cruce). */
+  crossAt: BoardPosition | null;
+}
+
+function newNodeFromRun(run: Run): ShapeNode {
+  const node: ShapeNode = {
+    cells: new Map(),
+    type: run.type,
+    horizontal: false,
+    vertical: false,
+    maxLine: 0,
+    hasSquare: false,
+    crossAt: null,
+  };
+  if (run.square) {
+    node.hasSquare = true;
+  } else {
+    if (run.horizontal) node.horizontal = true;
+    else node.vertical = true;
+    node.maxLine = run.cells.length;
+  }
+  for (const p of run.cells) node.cells.set(`${p.r},${p.c}`, p);
+  return node;
+}
+
+/**
+ * Regla de especial nacido de una shape final:
+ * - shape de 6+ celdas (cuadros pegados, cuadro+línea) o línea de 5 → bomba.
+ * - cruce T/L de líneas o cuadro (puro o pegado) → wrapped.
+ * - línea de 4 → rayada (orientación del swap si hay pista).
+ * - línea de 3 → nada.
+ */
+function decideSpecial(node: ShapeNode, hint: BoardPosition | null, swapAxis: "h" | "v" | null): SpecialKind {
+  if (node.cells.size >= 6 || node.maxLine >= 5) return "bomb";
+  if (node.horizontal && node.vertical) return "wrapped";
+  if (node.hasSquare) return "wrapped";
+  if (node.maxLine === 4) {
+    if (hint && swapAxis && node.cells.has(`${hint.r},${hint.c}`)) {
+      return swapAxis === "h" ? "stripe-h" : "stripe-v";
+    }
+    return node.horizontal ? "stripe-h" : "stripe-v";
   }
   return "none";
 }
 
-function pickCreationCell(run: Run, hint: BoardPosition | null): BoardPosition {
-  if (hint && runHas(run, hint.r, hint.c)) return hint;
-  return run.cells[Math.floor(run.cells.length / 2)];
-}
-
 /**
- * Convierte los runs en shapes: agrupa runs que se cruzan (T/L) en una sola
- * shape con wrapped, y determina qué especial nace y en qué celda.
+ * Convierte los grupos rompibles en shapes: fusiona cuadros 2×2 con líneas
+ * y cruces que compartan celdas (conectados), y decide qué especial nace
+ * y en qué celda (celda del swap si toca la shape, sino el punto de cruce,
+ * sino la celda central).
  */
 export function shapesFromRuns(runs: Run[], hint: BoardPosition | null, swapAxis: "h" | "v" | null): Shape[] {
-  const sorted = runs.slice().sort((a, b) => b.cells.length - a.cells.length);
-  const used = new Set<string>();
-  const key = (r: number, c: number) => `${r},${c}`;
-  const shapes: Shape[] = [];
+  const nodes = runs.map(newNodeFromRun);
 
-  for (let i = 0; i < sorted.length; i++) {
-    const runA = sorted[i];
-    if (runA.cells.every((p) => used.has(key(p.r, p.c)))) continue;
-
-    let crossIdx = -1;
-    let crossCell: BoardPosition | null = null;
-    for (let j = i + 1; j < sorted.length; j++) {
-      const runB = sorted[j];
-      if (runB.type !== runA.type) continue;
-      if (runB.horizontal === runA.horizontal) continue;
-      const shared = runB.cells.find((p) => runA.cells.some((q) => q.r === p.r && q.c === p.c));
-      if (shared && !runB.cells.every((p) => used.has(key(p.r, p.c)))) {
-        crossIdx = j;
-        crossCell = shared;
-        break;
+  // Union-find por compartición de celdas (número de grupos pequeño; el bucle
+  // O(n²) por pasada es suficiente y determinista).
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        if (a.type !== b.type) continue;
+        let shared: BoardPosition | null = null;
+        for (const [k, p] of a.cells) {
+          if (b.cells.has(k)) {
+            shared = p;
+            break;
+          }
+        }
+        if (!shared) continue;
+        // Fuusiona b dentro de a y queda registrada la celda compartida.
+        for (const [k, p] of b.cells) a.cells.set(k, p);
+        a.horizontal = a.horizontal || b.horizontal;
+        a.vertical = a.vertical || b.vertical;
+        a.maxLine = Math.max(a.maxLine, b.maxLine);
+        a.hasSquare = a.hasSquare || b.hasSquare;
+        if (a.crossAt === null) a.crossAt = shared;
+        nodes.splice(j, 1);
+        merged = true;
+        break outer;
       }
     }
-
-    if (crossIdx >= 0 && crossCell) {
-      const runB = sorted[crossIdx];
-      const all = [...runA.cells, ...runB.cells].filter(
-        (p, idx, arr) => arr.findIndex((q) => q.r === p.r && q.c === p.c) === idx,
-      );
-      let at = crossCell;
-      if (hint && (runHas(runA, hint.r, hint.c) || runHas(runB, hint.r, hint.c))) at = hint;
-      for (const p of all) used.add(key(p.r, p.c));
-      shapes.push({
-        cells: all,
-        type: runA.type,
-        isLine: false,
-        creations: [{ r: at.r, c: at.c, special: "wrapped" }],
-      });
-    } else {
-      const special = specialFor(runA, hint, swapAxis);
-      for (const p of runA.cells) used.add(key(p.r, p.c));
-      const creations = special === "none" ? [] : [{ ...pickCreationCell(runA, hint), special }];
-      shapes.push({ cells: runA.cells.slice(), type: runA.type, isLine: true, creations });
-    }
   }
-  return shapes;
+
+  return nodes.map((node) => {
+    const cells = [...node.cells.values()].sort((p, q) => p.r - q.r || p.c - q.c);
+    const special = decideSpecial(node, hint, swapAxis);
+    let at: BoardPosition | null = null;
+    if (special !== "none") {
+      at = hint && node.cells.has(`${hint.r},${hint.c}`) ? hint : (node.crossAt ?? cells[Math.floor(cells.length / 2)]);
+    }
+    const singleDir = !node.hasSquare && !(node.horizontal && node.vertical);
+    return {
+      cells,
+      type: node.type,
+      isLine: singleDir,
+      creations: special === "none" || at === null ? [] : [{ r: at.r, c: at.c, special }],
+    };
+  });
 }
 
 export interface Expansion {

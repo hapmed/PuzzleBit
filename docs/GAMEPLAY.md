@@ -67,12 +67,28 @@ El MVP usa solo puntuación; el resto llega después.
 - Ranking: el backend acepta ids `1..100000` y suma los niveles infinitos al
   ranking global; por nivel aparecen si alguien los jugó.
 
+## Reglas de rompe
+
+- **Líneas de 3** del mismo color rompen normal.
+- **Línea de 4** → nace una rayada (fila/columna).
+- **Línea de 5** → nace una bomba.
+- **Cruce T o L** → nace una wrapped (explosión 3×3).
+- **Cuadro 2×2** → rompe las 4 piezas y nace una wrapped; si el cuadro está
+  pegado a líneas del mismo color se fusionan con ellas y con 6+ celdas
+  conectadas nace una **bomba**.
+- El generador inicial y las barajas jamás dejan cuadros o líneas sueltos.
+
 ## Sazonador arcade (90s)
 
 - Pantalla de encendido con **INSERT COIN** (moneda anima con sonido) directa al
   siguiente nivel: cero menús intermedios.
 - Intro `¿LISTO? → ¡YA!` con fanfarria y chip **HI-SCOR** en el HUD.
 - **CRT:** scanlines suaves y flash de color en cada jugada, zoom "punch".
+- **Cada rompe tiene su show:** onda expansiva desde el punto del rompe que
+  cubre la pantalla, sacudida en cascadas, barrido de color cuando la cadena
+  sube de nivel, **lluvia de destellos** al nacer una especial y
+  **mega-rompe** (flash + triple onda + aguacero) para jugadas con especial
+  que además estalla. Timings recortados: swap ~92 ms, caída ~118 ms.
 - Partículas del color de cada pieza, `+N` flotante y banner de cascada con
   **tambores de anunciador** (vox2..vox5 generados) y **voz** por
   `speechSynthesis` es-ES (se puede callar con `localStorage pb.voiceoff=1`).

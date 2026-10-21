@@ -378,6 +378,115 @@ describe("especiales", () => {
   });
 });
 
+describe("cuadros 2×2 (shapes con esquinas)", () => {
+  /** Rellena con un patrón de tablero que jamás forma líneas ni cuadros. */
+  function fillPattern(board: Board, rows: number, cols: number): void {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        board.grid[r][c] = board.makePiece(((r + 2 * c) % 3) + 1);
+      }
+    }
+  }
+
+  it("un cuadro 2×2 aislado se detecta como grupo rompible", () => {
+    const board = Board.createFromLevel(simpleLevel(5, 5, 3));
+    fillPattern(board, 5, 5);
+    // Cuadro 2×2 de tipo 2 en (0..1, 2..3).
+    board.grid[0][2] = board.makePiece(2);
+    board.grid[0][3] = board.makePiece(2);
+    board.grid[1][2] = board.makePiece(2);
+    board.grid[1][3] = board.makePiece(2);
+    const matches = findMatches(board);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].square).toBe(true);
+    expect(matches[0].type).toBe(2);
+    expect(matches[0].cells).toHaveLength(4);
+  });
+
+  it("un swap que completa un cuadro es válido y nace wrapped", () => {
+    const engine = new Engine(simpleLevel(5, 5, 3));
+    const board = engine.board;
+    fillPattern(board, 5, 5);
+    // fila 0: [1,2,3,2,3] y fila 1: [2,1,2,2,1] → el swap (0,1)↔(0,2)
+    // deja el cuadro 2×2 de tipo 2 en (0..1, 2..3) y nada más.
+    board.grid[0][0] = board.makePiece(1);
+    board.grid[0][1] = board.makePiece(2);
+    board.grid[0][2] = board.makePiece(3);
+    board.grid[0][3] = board.makePiece(2);
+    board.grid[0][4] = board.makePiece(3);
+    board.grid[1][0] = board.makePiece(2);
+    board.grid[1][1] = board.makePiece(1);
+    board.grid[1][2] = board.makePiece(2);
+    board.grid[1][3] = board.makePiece(2);
+    board.grid[1][4] = board.makePiece(1);
+    const moves0 = engine.movesLeft;
+    const result = engine.attemptSwap({ r: 0, c: 1 }, { r: 0, c: 2 });
+    expect(result.ok).toBe(true);
+    expect(engine.movesLeft).toBe(moves0 - 1);
+    const remove = result.events.find((e) => e.kind === "remove");
+    expect(remove).toBeTruthy();
+    if (remove?.kind === "remove") {
+      expect(remove.created).toHaveLength(1);
+      expect(remove.created[0].special).toBe("wrapped");
+      expect(remove.created[0].r).toBe(0);
+      expect(remove.created[0].c).toBe(2); // celda del swap dentro del cuadro
+      expect(remove.cells.length).toBe(3); // el otro rincón queda como especial
+    }
+  });
+
+  it("cuadro y línea del mismo color se fusionan en una bomba", () => {
+    const board = Board.createFromLevel(simpleLevel(5, 5, 3));
+    fillPattern(board, 5, 5);
+    // Línea de 4 en fila 1 (cols 0..3, tipo 1) + cuadro 2×2 en (1..2, 2..3)
+    // + línea vertical col 3 (rows 0..3): 7 celdas conectadas → bomba.
+    board.grid[1][0] = board.makePiece(1);
+    board.grid[1][1] = board.makePiece(1);
+    board.grid[1][2] = board.makePiece(1);
+    board.grid[1][3] = board.makePiece(1);
+    board.grid[1][4] = board.makePiece(4);
+    board.grid[2][0] = board.makePiece(3);
+    board.grid[2][1] = board.makePiece(2);
+    board.grid[2][2] = board.makePiece(1);
+    board.grid[2][3] = board.makePiece(1);
+    board.grid[2][4] = board.makePiece(2);
+    const runs = findMatches(board);
+    expect(runs.length).toBeGreaterThanOrEqual(3); // línea 4 + vertical 4 + cuadro
+    const shapes = shapesFromRuns(runs, null, null);
+    expect(shapes).toHaveLength(1); // todos conectados por celdas compartidas
+    expect(shapes[0].cells).toHaveLength(8); // 4 + 4 + 4 menos las celdas compartidas
+    expect(shapes[0].creations).toHaveLength(1);
+    expect(shapes[0].creations[0].special).toBe("bomb");
+    expect(shapes[0].creations[0].r).toBe(1);
+    expect(shapes[0].creations[0].c).toBe(3); // punto de cruce
+  });
+
+  it("possibleMoves incluye el swap que arma un cuadro", () => {
+    const board = Board.createFromLevel(simpleLevel(5, 5, 3));
+    fillPattern(board, 5, 5);
+    board.grid[0][0] = board.makePiece(1);
+    board.grid[0][1] = board.makePiece(2);
+    board.grid[0][2] = board.makePiece(3);
+    board.grid[0][3] = board.makePiece(2);
+    board.grid[0][4] = board.makePiece(3);
+    board.grid[1][0] = board.makePiece(2);
+    board.grid[1][1] = board.makePiece(1);
+    board.grid[1][2] = board.makePiece(2);
+    board.grid[1][3] = board.makePiece(2);
+    board.grid[1][4] = board.makePiece(1);
+    const moves = possibleMoves(board);
+    expect(
+      moves.some(([a, b]) => a.r === 0 && a.c === 1 && b.r === 0 && b.c === 2),
+    ).toBe(true);
+  });
+
+  it("el generador inicial tampoco produce cuadros", () => {
+    for (const seed of [1, 7, 42, 999, 55, 1234]) {
+      const board = Board.createFromLevel({ ...baseLevel, seed });
+      expect(findMatches(board)).toHaveLength(0); // líneas y cuadros
+    }
+  });
+});
+
 describe("bloqueadores y objetivos", () => {
   function blockerLevel(): LevelDef {
     return {

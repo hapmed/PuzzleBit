@@ -1,18 +1,25 @@
 import type { Board } from "./board";
 import type { BoardPosition } from "./board";
 
-/** Un match horizontal o vertical de 3+ piezas del mismo tipo. */
+/** Un grupo que se rompe: línea de 3+ o cuadro 2×2 del mismo tipo. */
 export interface Run {
   cells: BoardPosition[];
   horizontal: boolean;
   type: number;
+  /** true si el grupo es un cuadro 2×2 en vez de una línea. */
+  square?: boolean;
 }
 
 /**
- * Detecta todos los runs (líneas de 3 o más) del tablero.
+ * Detecta todos los grupos rompibles: líneas de 3+ y cuadros 2×2.
  * Ignora ingredientes, celdas en caja y celdas vacías o de tipo 0.
  */
 export function findMatches(board: Board): Run[] {
+  return [...findRuns(board), ...findSquares(board)];
+}
+
+/** Detecta solo las líneas (horizontales y verticales) de 3 o más. */
+function findRuns(board: Board): Run[] {
   const runs: Run[] = [];
 
   const samePiece = (r: number, c: number): number | null => {
@@ -84,6 +91,41 @@ export function findMatches(board: Board): Run[] {
   }
 
   return runs;
+}
+
+/**
+ * Detecta todos los cuadros 2×2 (4 piezas iguales). Cada esquina emite su
+ * cuadro aunque se solape con otro: shapesFromRuns los fusiona.
+ */
+export function findSquares(board: Board): Run[] {
+  const squares: Run[] = [];
+
+  const samePiece = (r: number, c: number): number | null => {
+    const cell = board.grid[r][c];
+    if (!cell || cell.inCrate || cell.ingredient || cell.type <= 0) return null;
+    return cell.type;
+  };
+
+  for (let r = 0; r + 1 < board.rows; r++) {
+    for (let c = 0; c + 1 < board.cols; c++) {
+      const t = samePiece(r, c);
+      if (t === null) continue;
+      if (samePiece(r, c + 1) === t && samePiece(r + 1, c) === t && samePiece(r + 1, c + 1) === t) {
+        squares.push({
+          cells: [
+            { r, c },
+            { r, c: c + 1 },
+            { r: r + 1, c },
+            { r: r + 1, c: c + 1 },
+          ],
+          horizontal: false,
+          type: t,
+          square: true,
+        });
+      }
+    }
+  }
+  return squares;
 }
 
 /** Indica si un run contiene una posición dada. */

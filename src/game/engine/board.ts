@@ -181,6 +181,21 @@ export class Board {
           const b = board.grid[r - 2][c];
           if (a && b && a.type === b.type && !a.ingredient && !b.ingredient && a.type) banned.add(a.type);
         }
+        // Prohibir también completar un cuadro 2×2 con las tres celdas que
+        // cierran la esquina (arriba, izquierda y diagonal).
+        if (r >= 1 && c >= 1) {
+          const up = board.grid[r - 1][c];
+          const left = row[c - 1];
+          const diag = board.grid[r - 1][c - 1];
+          if (
+            up && left && diag &&
+            up.type === left.type && left.type === diag.type &&
+            !up.ingredient && !left.ingredient && !diag.ingredient &&
+            up.type > 0
+          ) {
+            banned.add(up.type);
+          }
+        }
         const pairs: number[] = [];
         for (let t = 1; t <= level.types; t++) if (!banned.has(t)) pairs.push(t);
         const type = pairs.length ? rng.pick(pairs) : 1 + rng.int(level.types);
