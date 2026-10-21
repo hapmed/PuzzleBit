@@ -8,11 +8,13 @@ import { createDailyLevel } from "../daily";
 import { createEndlessLevel } from "../endless";
 import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
+import { addCRTOverlays, screenPunch } from "../fx";
+import { announce, playSfx } from "../sfx";
 import {
   finalScoreWithMovesLeft,
   starsForScore,
 } from "../engine/score";
-import { recordDailyResult, recordLevelResult, spendBooster } from "../state";
+import { recordDailyResult, recordLastPlayed, recordLevelResult, spendBooster, getAllProgress } from "../state";
 import { postProgress, postScore } from "../../api/client";
 
 /** Escena de juego: motor + vista + HUD + boosters. */
@@ -31,6 +33,7 @@ export class GameScene extends Phaser.Scene {
     this.isDaily = !!data.daily;
     this.levelId = data.levelId ?? 1;
     if (this.levelId < 1) this.levelId = 1;
+    if (!this.isDaily) recordLastPlayed(this.levelId);
   }
 
   private resolveLevel(): LevelDef {
@@ -40,13 +43,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.cameras.main.fadeIn(220, 0, 0, 0);
     const level = this.isDaily ? createDailyLevel() : this.resolveLevel();
     this.engine = new Engine(level);
     const w = this.scale.width;
     const h = this.scale.height;
 
     this.cameras.main.setBackgroundColor(COLORS.bg);
-    this.add.image(w / 2, h / 2, "bg").setDisplaySize(w, h).setAlpha(0.35);
+    const bgWall = this.add.image(w / 2, h / 2, "bg").setDisplaySize(w, h).setAlpha(0.35);
+    this.tweens.add({ targets: bgWall, x: bgWall.x - 10, duration: 5200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     this.add
       .text(w / 2, 12, this.isDaily ? "Reto diario" : `Nivel ${level.id} · ${level.name}`, {
@@ -69,15 +74,17 @@ export class GameScene extends Phaser.Scene {
 
     this.hud = new Hud(this, this.engine, (kind) => this.onBooster(kind));
     this.hud.update(this.engine);
+    addCRTOverlays(this);
+    this.arcadeIntro();
 
     // Botón de pausa/salir.
     const exit = this.add.container(w - 56, 76);
-    const bg = this.add.rectangle(0, 0, 74, 40, COLORS.panel).setStrokeStyle(2, COLORS.border);
-    const label = this.add.text(0, 0, "salir", { fontFamily: '"Courier New", monospace', fontSize: "16px", color: "#fff" }).setOrigin(0.5);
-    exit.add([bg, label]);
+    const bgExit = this.add.rectangle(0, 0, 74, 40, COLORS.panel).setStrokeStyle(2, COLORS.border);
+    const exitLabel = this.add.text(0, 0, "salir", { fontFamily: '"Courier New", monospace', fontSize: "16px", color: "#fff" }).setOrigin(0.5);
+    exit.add([bgExit, exitLabel]);
     exit.setSize(74, 40);
     exit.setInteractive({ useHandCursor: true });
-    exit.on("pointerdown", () => this.scene.start("LevelMap"));
+    exit.on("pointerdown", () => this.scene.start("Menu"));
 
     if (this.isDaily) this.renderDailyStamp();
   }
@@ -91,8 +98,35 @@ export class GameScene extends Phaser.Scene {
     stamp.setAlpha(0.7);
   }
 
-  private onBooster(kind: "hammer" | "shuffle" | "move"): void {
-    if (this.engine.finished || this.boardView.isBusy()) return;
+  /** Intro de gabinete: "¿LISTO?" → "¡YA!" con fanfarria (no bloquea el tablero). */
+  private arcadeIntro(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const banner = this.add.text(w / 2, h * 0.42, "¿LISTO?", {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "46px",
+      color: "#ffd95e",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(96).setStroke("#14102b", 8).setScale(0.4).setAlpha(0);
+    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 180, ease: "Back.easeOut" });
+    this.time.delayedCall(760, () => {
+      banner.setText("¡YA!").setColor("#4dd6a0");
+      playSfx(this, "start");
+      this.tweens.add({ targets: banner, scale: 1.25, alpha: 0, duration: 360, delay: 120, onComplete: () => banner.destroy() });
+    });
+    // HI-SCOR chip arcade (mejor suma de progreso local).
+    const map = getAllProgress();
+    let best = 0;
+    for (const p of Object.values(map)) best = Math.max(best, p.bestScore);
+    this.add.text(w - 20, 46, `HI-SCOR ${best}`, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "13px",
+      color: "#ff5fa2",
+      fontStyle: "bold",
+    }).setOrigin(1, 0);
+  }
+
+  private onBooster(kind: "hammer" | "shuffle" | "move"): void {    if (this.engine.finished || this.boardView.isBusy()) return;
     if (!spendBooster(kind)) {
       this.toast("¡Sin cargas!");
       return;
@@ -128,7 +162,74 @@ export class GameScene extends Phaser.Scene {
       this.finishVictory();
     } else if (result.lost) {
       this.finishDefeat();
+    } else {
+      this.maybeSpawnToasty();
     }
+  }
+
+  // ——— Popup arcade al estilo "toasty" (mascota original) ———
+  private toastyCooldownUntil = 0;
+  private toastyOpen?: Phaser.GameObjects.Container;
+
+  /** Sorteo: cada turno finalizado puede invitar a la mascota al rincón. */
+  private maybeSpawnToasty(): void {
+    if (this.engine.finished || this.time.now < this.toastyCooldownUntil) return;
+    if (Math.random() >= 0.16) return;
+    this.toastyCooldownUntil = this.time.now + 9000;
+    this.spawnToasty();
+  }
+
+  private spawnToasty(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const phrases = ["¡Doradito!", "¡Con queso!", "¡Fresco!", "¡Bien ahi!", "¡Rico rico!", "¡Nivelazo!"];
+    const prize = 150 + 50 * (1 + Math.floor(Math.random() * 5)); // 200..600
+    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+
+    const toast = this.add.container(w - 104, h - 132).setDepth(94);
+    const face = this.add.image(-70, 0, "piece1").setDisplaySize(58, 58);
+    const bubble = this.add.rectangle(36, 0, 150, 42, COLORS.panel).setStrokeStyle(2, 0xffd95e);
+    const text = this.add.text(36, 0, phrase, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "16px",
+      color: "#ffd95e",
+      fontStyle: "bold",
+    }).setOrigin(0.5);
+    toast.add([bubble, text, face]);
+    toast.setSize(240, 60);
+    toast.setInteractive(new Phaser.Geom.Rectangle(-120, -30, 240, 60), Phaser.Geom.Rectangle.Contains);
+
+    const collect = (): void => {
+      toast.off("pointerdown", collect);
+      this.engine.score += prize;
+      this.hud.update(this.engine);
+      playSfx(this, "special");
+      announce("¡Bonus!", this);
+      screenPunch(this, 0xffe14d, 0.8);
+      const pop = this.add.text(toast.x, toast.y - 40, `+${prize} EXTRA`, {
+        fontFamily: '"Courier New", monospace',
+        fontSize: "24px",
+        color: "#4dd6a0",
+        fontStyle: "bold",
+      }).setOrigin(0.5).setDepth(96).setStroke("#14102b", 5);
+      this.tweens.add({ targets: pop, y: "-=60", alpha: 0, duration: 640, onComplete: () => pop.destroy() });
+      this.tweens.killTweensOf(toast);
+      toast.destroy();
+      this.toastyOpen = undefined;
+    };
+    toast.on("pointerdown", collect);
+
+    // Aparece con rebote desde la derecha y coquetea mientras vive.
+    toast.x = w + 130;
+    this.tweens.add({ targets: toast, x: w - 104, duration: 260, ease: "Back.easeOut" });
+    this.tweens.add({ targets: toast, angle: { from: -3, to: 3 }, duration: 160, yoyo: true, repeat: 6 });
+    this.toastyOpen = toast;
+    this.time.delayedCall(1750, () => {
+      if (this.toastyOpen === toast) {
+        this.tweens.add({ targets: toast, x: w + 130, alpha: 0, duration: 220, onComplete: () => toast.destroy() });
+        this.toastyOpen = undefined;
+      }
+    });
   }
 
   /** Puntuación final con bonus de movimientos restantes y estrellas. */
@@ -190,16 +291,16 @@ export class GameScene extends Phaser.Scene {
     if (!defeat) {
       this.overlayButton(w / 2, buttonsY, "siguiente nivel", () => {
         if (this.isDaily) {
-          this.scene.start("LevelMap");
+          this.scene.start("Menu");
         } else {
           this.scene.restart({ levelId: this.levelId + 1, daily: false });
         }
       });
-      this.overlayButton(w / 2 - 120, buttonsY + 70, "mapa", () => this.scene.start("LevelMap"));
+      this.overlayButton(w / 2 - 120, buttonsY + 70, "menú", () => this.scene.start("Menu"));
       this.overlayButton(w / 2 + 120, buttonsY + 70, "reintentar", () => this.scene.restart());
     } else {
       this.overlayButton(w / 2, buttonsY, "reintentar", () => this.scene.restart());
-      this.overlayButton(w / 2, buttonsY + 70, "mapa", () => this.scene.start("LevelMap"));
+      this.overlayButton(w / 2, buttonsY + 70, "menú", () => this.scene.start("Menu"));
     }
   }
 

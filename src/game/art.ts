@@ -40,6 +40,9 @@ const PIECES: Array<{ color: string; light: string; dark: string; painterIdx: nu
   { color: "#ff9a3d", light: "#ffce96", dark: "#e05b00", painterIdx: 3 },
 ];
 
+/** Tint por tipo de pieza (índice 1..6) para partículas y detalles. */
+export const PIECE_TINTS: number[] = [0xffffff, 0xff5fa2, 0xffe14d, 0x4dd6a0, 0x4da3ff, 0xb06bff, 0xff9a3d];
+
 const disc: Painter = (b, color, light, dark) => {
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {

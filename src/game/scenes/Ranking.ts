@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { COLORS } from "../config";
+import { addCRTOverlays } from "../fx";
 import { LEVELS } from "./Preload";
 import { ensureNickname, fetchRanking, pendingSyncCount, type LevelRanking } from "../../api/client";
 import { getAllProgress } from "../state";
@@ -11,7 +12,9 @@ export class RankingScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.cameras.main.fadeIn(220, 0, 0, 0);
     ensureNickname();
+    addCRTOverlays(this, 0.08);
     const w = this.scale.width;
     this.cameras.main.setBackgroundColor(COLORS.bg);
     this.add.text(w / 2, 56, "Ranking", {

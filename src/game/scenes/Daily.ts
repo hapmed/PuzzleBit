@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { COLORS } from "../config";
+import { addCRTOverlays } from "../fx";
 import { getDailyState } from "../state";
 
 /** Escena previa al reto diario: muestra estado y lanza la partida del día. */
@@ -9,6 +10,8 @@ export class DailyScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.cameras.main.fadeIn(220, 0, 0, 0);
+    addCRTOverlays(this, 0.08);
     const w = this.scale.width;
     const h = this.scale.height;
     this.cameras.main.setBackgroundColor(COLORS.bg);

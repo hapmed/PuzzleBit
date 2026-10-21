@@ -104,6 +104,34 @@ export function isEndlessUnlocked(totalLevels: number): boolean {
   return false;
 }
 
+/** La campaña (nivel N) quedó completada: el modo infinito encadena desde ahí. */
+export function isCampaignCompleted(totalLevels: number): boolean {
+  return !!getAllProgress()[String(totalLevels)]?.completed;
+}
+
+// ——— Nivel de reanudación (sin pantalla de selección) ———
+const KEY_LAST_PLAYED = "pb.lastplayed.v1";
+
+/** Último nivel de campaña jugado (0 si nunca se jugó). */
+export function getLastPlayedLevel(): number {
+  const raw = safeParse<{ v: number }>(localStorage.getItem(KEY_LAST_PLAYED), { v: 0 });
+  return raw.v || 0;
+}
+
+/** Recordar el nivel actual para reabrir el juego exactamente ahí. */
+export function recordLastPlayed(levelId: number): void {
+  localStorage.setItem(KEY_LAST_PLAYED, JSON.stringify({ v: levelId }));
+}
+
+/**
+ * Nivel al que entra el juego directo al abrir:
+ * último jugado; si nunca se jugó, el siguiente desbloqueado.
+ */
+export function resumeLevel(lastFallback: number): number {
+  const last = getLastPlayedLevel();
+  return last > 0 ? last : lastFallback;
+}
+
 // ——— Reto diario ———
 export function getDailyState(): DailyState {
   const s = safeParse<DailyState>(localStorage.getItem(KEY_DAILY), { date: "", done: false, best: 0 });
@@ -144,6 +172,37 @@ export function getNickname(): string {
 
 export function setNickname(nick: string): void {
   localStorage.setItem(KEY_NICKNAME, nick.trim().slice(0, 20));
+}
+
+// apodos graciosos (sin acentos: el backend solo acepta [A-Za-z0-9 _-]).
+const NICK_HONORIFICS = ["Capitan", "Don", "Sr.", "Dra.", "Gran", "Turbo", "Mega", "Super", "Lord", "Peque"];
+const NICK_NOUNS = [
+  "Babosa", "Cacahuate", "Taco", "Pepinillo", "Chimichanga", "Nugget", "Waffle",
+  "Dorito", "Frijol", "Zanahoria", "Pinguino", "Tostada", "Pulpo", "Croqueta", "Gansito",
+];
+const NICK_TAILS = ["", "Veloz", "Cosmico", "Colorao", "Saltarin", "Chido", "Sonriente", "Fugaz"];
+
+/** Apodo aleatorio gracioso, max 20 chars, seguro para el backend. */
+export function randomFunnyNickname(): string {
+  const r = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+  const middle = Math.random() < 0.55 ? NICK_TAILS[Math.floor(Math.random() * NICK_TAILS.length)] : "";
+  let nick = `${r(NICK_HONORIFICS)} ${r(NICK_NOUNS)}`;
+  if (middle) nick += ` ${middle}`;
+  if (Math.random() < 0.12) nick = `${nick} ${1 + Math.floor(Math.random() * 99)}`;
+  nick = nick.split(" ")
+    .reduce<string[]>((acc, w) => (acc.join(" ").length + (acc.length ? 1 : 0) + w.length <= 20 ? [...acc, w] : acc), [])
+    .join(" ")
+    .trim();
+  return nick || "Jugador 1";
+}
+
+/** Asigna apodo la primera vez (y avisa con true para mostrar el banner). */
+export function ensureNickname(): boolean {
+  if (!getNickname()) {
+    setNickname(randomFunnyNickname());
+    return true;
+  }
+  return false;
 }
 
 // ——— Cola offline de sincronización ———

@@ -2,9 +2,10 @@ import Phaser from "phaser";
 import { COLORS } from "../config";
 import levelCatalogJson from "../../../data/levels.json";
 import { parseLevelCatalog, type LevelDef } from "../levels";
-import { getNickname } from "../state";
+import { ensureNickname, getNickname, isCampaignCompleted, maxEndlessLevel, maxPlayableLevel, resumeLevel } from "../state";
+import { addCRTOverlays } from "../fx";
+import { playSfx, SFX_KEYS } from "../sfx";
 import * as api from "../../api/client";
-import { SFX_KEYS } from "../sfx";
 
 export let LEVELS: LevelDef[] = [];
 export let DAILY_LEVEL: LevelDef | null = null;
@@ -28,17 +29,50 @@ export class PreloadScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
     this.cameras.main.setBackgroundColor(COLORS.bg);
-    this.add.text(w / 2, h / 2 - 40, "PUZZLE", {
+    this.cameras.main.fadeIn(220, 0, 0, 0);
+    addCRTOverlays(this);
+
+    // Pantalla de gabinete: título + moneda cayendo antes de arrancar.
+    this.add.image(w / 2, h / 2, "bg").setDisplaySize(w, h).setAlpha(0.35);
+    this.add.text(w / 2, h * 0.3, "PUZZLE", {
       fontFamily: '"Courier New", monospace',
-      fontSize: "48px",
+      fontSize: "52px",
       color: "#ffffff",
       fontStyle: "bold",
     }).setOrigin(0.5);
-    this.add.text(w / 2, h / 2 + 20, "cargando…", {
+
+    const blink = this.add.text(w / 2, h * 0.62, "INSERT COIN", {
       fontFamily: '"Courier New", monospace',
-      fontSize: "18px",
-      color: "#b0a6d9",
+      fontSize: "30px",
+      color: "#ffd95e",
+      fontStyle: "bold",
     }).setOrigin(0.5);
+    this.tweens.add({ targets: blink, alpha: { from: 1, to: 0.15 }, duration: 340, yoyo: true, repeat: -1 });
+
+    // Apodo gracioso automático en la primera visita.
+    const fresh = ensureNickname();
+    if (fresh) {
+      this.add.text(w / 2, h * 0.78, `jugando como: ${getNickname()}`, {
+        fontFamily: '"Courier New", monospace',
+        fontSize: "18px",
+        color: "#4dd6a0",
+        fontStyle: "bold",
+      }).setOrigin(0.5);
+    }
+
+    const coinAlign = h * 0.62 + 40;
+    const coinTxt = this.add.text(w / 2 - 44, coinAlign - 90, "🪙", { fontSize: "30px" }).setOrigin(0.5).setVisible(false);
+    this.time.delayedCall(420, () => {
+      coinTxt.setVisible(true);
+      this.tweens.add({
+        targets: coinTxt,
+        y: coinAlign,
+        scale: { from: 1.4, to: 1 },
+        duration: 320,
+        ease: "Bounce.easeIn",
+        onComplete: () => playSfx(this, "coin"),
+      });
+    });
 
     // Sincroniza pendientes en cuanto arranca.
     if (navigator.onLine) {
@@ -47,11 +81,20 @@ export class PreloadScene extends Phaser.Scene {
       });
     }
 
-    if (!getNickname()) {
-      // El apodo se pide al terminar el primer nivel; no bloqueamos el arranque.
-    }
-
-    this.time.delayedCall(300, () => this.scene.start("Menu"));
+    // Entra directo a jugar: último nivel jugado (o el pendiente la 1ª vez).
+    // Tap = saltar el intro del gabinete (impatient arcade player).
+    let started = false;
+    const enterGame = (): void => {
+      if (started) return;
+      started = true;
+      const total = LEVELS.length;
+      const unlocked = maxPlayableLevel(total);
+      const fallback = isCampaignCompleted(total) ? maxEndlessLevel(total) : unlocked;
+      const next = resumeLevel(fallback);
+      this.scene.start("Game", { levelId: next });
+    };
+    this.input.once("pointerdown", enterGame);
+    this.time.delayedCall(1100, enterGame);
   }
 
   private tryLoadDaily(): void {

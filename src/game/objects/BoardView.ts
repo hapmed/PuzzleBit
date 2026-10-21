@@ -1,7 +1,8 @@
 import Phaser from "phaser";
-import { INGREDIENT_TEXTURE, textureForPiece } from "../art";
+import { INGREDIENT_TEXTURE, PIECE_TINTS, textureForPiece } from "../art";
+import { screenPunch } from "../fx";
 import type { Engine, GameEvent, TurnResult } from "../engine/engine";
-import { playSfx } from "../sfx";
+import { announce, playSfx } from "../sfx";
 
 /** Vista animada del tablero: sprites, overlays, input y tweens. */
 export class BoardView extends Phaser.GameObjects.Container {
@@ -22,6 +23,8 @@ export class BoardView extends Phaser.GameObjects.Container {
   private dragDone = false;
   private pointerMoveHandler: (p: Phaser.Input.Pointer) => void;
   private onTurnEnd: (result: TurnResult) => void;
+  private cascadeCount = 0;
+  private lastRemoval?: { x: number; y: number; cells: number };
 
   constructor(scene: Phaser.Scene, engine: Engine, originX: number, originY: number, cellSize: number, onTurnEnd: (r: TurnResult) => void) {
     super(scene, 0, 0);
@@ -206,6 +209,13 @@ export class BoardView extends Phaser.GameObjects.Container {
     rect.isFilled = false;
     this.add(rect);
     this.selectBox = rect;
+    this.scene.tweens.add({
+      targets: rect,
+      alpha: { from: 1, to: 0.55 },
+      duration: 320,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   private deselect(): void {
@@ -225,6 +235,8 @@ export class BoardView extends Phaser.GameObjects.Container {
     if (this.busy) return Promise.resolve();
     this.busy = true;
     this.deselect();
+    const scoreBefore = this.engine.score;
+    this.cascadeCount = 0;
     const result = run();
     if (!result.ok && result.events.length === 0) {
       // Movimiento ilegal inofensivo: nada que animar.
@@ -233,6 +245,14 @@ export class BoardView extends Phaser.GameObjects.Container {
     }
     return this.playEvents(result.events).then(() => {
       this.refreshOverlays();
+      // Efectos de puntuación: +delta flotante y banner de cascada.
+      const delta = this.engine.score - scoreBefore;
+      if (delta > 0 && this.lastRemoval) {
+        this.spawnScorePop(`${delta >= 100 ? "+" + Math.round(delta) : "+" + delta}`, this.lastRemoval.x, this.lastRemoval.y);
+      }
+      if (this.cascadeCount >= 2) {
+        this.spawnCascadeBanner(this.cascadeCount);
+      }
       this.busy = false;
       this.onTurnEnd(result);
     });
@@ -241,6 +261,94 @@ export class BoardView extends Phaser.GameObjects.Container {
   // ——— Animaciones ———
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => this.scene.time.delayedCall(ms, resolve));
+  }
+
+  /** Explosión corta de partículas del color de la pieza. */
+  private spawnBurst(x: number, y: number, tint: number): void {
+    if (this.scene.tweens.getGlobalTimeScale() === 0) return;
+    const tex = this.scene.textures.exists("star") ? "star" : "piece1";
+    try {
+      const emitter = this.scene.add.particles(x, y, tex, {
+        speed: { min: 60, max: 170 },
+        angle: { min: 0, max: 360 },
+        lifespan: { min: 240, max: 420 },
+        scale: { start: 0.28, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        gravityY: 260,
+        tint,
+        quantity: 4,
+        emitting: false,
+      });
+      emitter.setDepth(60);
+      emitter.explode(4);
+      this.scene.time.delayedCall(480, () => emitter.destroy());
+    } catch {
+      /* sin partículas, nada grave */
+    }
+  }
+
+  /** "+N" flotante en el centro del match. */
+  private spawnScorePop(text: string, x: number, y: number): void {
+    const pop = this.scene.add.text(x, y, text, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "26px",
+      color: "#ffd95e",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(70).setStroke("#14102b", 4);
+    this.scene.tweens.add({
+      targets: pop,
+      y: y - this.cellSize * 1.3,
+      scale: { from: 0.5, to: 1.15 },
+      alpha: { from: 1, to: 0 },
+      duration: 620,
+      ease: "Sine.easeOut",
+      onComplete: () => pop.destroy(),
+    });
+  }
+
+  /** Banner grande ¡CASCADA xN! + stinger + voz de presentador, estilo arcade. */
+  private spawnCascadeBanner(n: number): void {
+    const w = this.scene.scale.width;
+    const colors = ["#ffd95e", "#ff9a3d", "#ff5fa2", "#b06bff"];
+    const color = colors[Math.min(n - 2, colors.length - 1)];
+    const tiers = [
+      { msg: "¡DOBLE CASCADA!", tint: 0xffe14d, punch: 0.5 },
+      { msg: "¡TRIPLE CASCADA!", tint: 0xff9a3d, punch: 0.75 },
+      { msg: "¡CASCADA BRUTAL!", tint: 0xff5fa2, punch: 1 },
+      { msg: "¡CATACLISMO!", tint: 0xb06bff, punch: 1.25 },
+      { msg: "¡¡IMPARABLE!!", tint: 0xffffff, punch: 1.5 },
+    ];
+    const voxKeys = ["vox2", "vox3", "vox4", "vox5"] as const;
+    const tierIdx = Math.min(n - 2, tiers.length - 1);
+    const tier = tiers[tierIdx];
+    playSfx(this.scene, voxKeys[Math.min(n - 2, voxKeys.length - 1)]);
+    announce(tier.msg, this.scene);
+    screenPunch(this.scene, tier.tint, tier.punch);
+    const banner = this.scene.add.text(w / 2, this.scene.scale.height * 0.36, tier.msg, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "34px",
+      color,
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(80).setStroke("#14102b", 6);
+    banner.setScale(0.3).setAlpha(0);
+    this.scene.tweens.add({
+      targets: banner,
+      scale: 1,
+      alpha: 1,
+      duration: 180,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: banner,
+          y: "-=60",
+          alpha: 0,
+          delay: 220,
+          duration: 320,
+          ease: "Sine.easeIn",
+          onComplete: () => banner.destroy(),
+        });
+      },
+    });
   }
 
   private async playEvents(events: GameEvent[]): Promise<void> {
@@ -255,19 +363,20 @@ export class BoardView extends Phaser.GameObjects.Container {
           const targetB = this.pos(toB.r, toB.c);
           const targetA = this.pos(toA.r, toA.c);
           if (spriteA) {
-            this.scene.tweens.add({ targets: spriteA, x: targetB.x + this.cellSize / 2, y: targetB.y + this.cellSize / 2, duration: 130, ease: "Sine.easeInOut" });
+            this.scene.tweens.add({ targets: spriteA, x: targetB.x + this.cellSize / 2, y: targetB.y + this.cellSize / 2, duration: 110, ease: "Sine.easeInOut" });
           }
           if (spriteB) {
-            this.scene.tweens.add({ targets: spriteB, x: targetA.x + this.cellSize / 2, y: targetA.y + this.cellSize / 2, duration: 130, ease: "Sine.easeInOut" });
+            this.scene.tweens.add({ targets: spriteB, x: targetA.x + this.cellSize / 2, y: targetA.y + this.cellSize / 2, duration: 110, ease: "Sine.easeInOut" });
             if (ev.kind === "revert") {
-              this.scene.tweens.add({ targets: spriteB, alpha: { from: 0.4, to: 1 }, duration: 130 });
+              this.scene.tweens.add({ targets: spriteB, alpha: { from: 0.4, to: 1 }, duration: 110 });
             }
           }
-          await this.wait(140);
+          await this.wait(115);
           break;
         }
         case "remove": {
           playSfx(this.scene, ev.triggers.length > 0 ? "special" : "match");
+          this.cascadeCount++;
           // Flash de las especiales activadas.
           for (const t of ev.triggers) {
             const { x, y } = this.pos(t.r, t.c);
@@ -276,19 +385,34 @@ export class BoardView extends Phaser.GameObjects.Container {
             this.add(ring);
             this.scene.tweens.add({ targets: ring, radius: this.cellSize * 1.4, alpha: 0, duration: 220, onComplete: () => ring.destroy() });
           }
-          // Piezas eliminadas: destello + encogimiento.
+          // Sacudida cuando el turno removió mucho (especial grande o cascada).
+          if (ev.cells.length >= 6 || this.cascadeCount >= 2) {
+            this.scene.cameras.main.shake(130, this.cascadeCount >= 2 ? 0.004 : 0.0025);
+          }
+          // Efecto de pantalla por especial potente.
+          if (ev.triggers.length >= 2 || ev.cells.length >= 8) {
+            screenPunch(this.scene, 0xffd95e, 0.55);
+          }
+          // Piezas eliminadas: destello + encogimiento + partículas del color.
           for (const cell of ev.cells) {
             const sprite = this.sprites.get(cell.id);
             if (!sprite) continue;
+            const { x, y } = this.pos(cell.r, cell.c);
             sprite.setDepth(40);
+            this.spawnBurst(x + this.cellSize / 2, y + this.cellSize / 2, cell.type === 0 || cell.ingredient ? 6 : PIECE_TINTS[cell.type]);
             this.scene.tweens.add({
               targets: sprite,
               scale: sprite.scale * 0.15,
               alpha: 0,
-              duration: 170,
+              duration: 150,
               onComplete: () => sprite.destroy(),
             });
             this.sprites.delete(cell.id);
+          }
+          if (ev.cells.length > 0) {
+            const mid = ev.cells[Math.floor(ev.cells.length / 2)];
+            const { x, y } = this.pos(mid.r, mid.c);
+            this.lastRemoval = { x: x + this.cellSize / 2, y: y + this.cellSize / 2 - this.cellSize * 0.4, cells: ev.cells.length };
           }
           // Especiales recién creadas: latido.
           if (ev.created.length) {
@@ -302,7 +426,7 @@ export class BoardView extends Phaser.GameObjects.Container {
               this.scene.tweens.add({ targets: ghost, alpha: 1, scale: ghost.scale * 1.08, yoyo: true, duration: 130, onComplete: () => ghost.destroy() });
             }
           }
-          await this.wait(190);
+          await this.wait(165);
           this.refreshOverlays();
           break;
         }
@@ -311,9 +435,9 @@ export class BoardView extends Phaser.GameObjects.Container {
             const sprite = this.sprites.get(fall.id);
             if (!sprite) continue;
             const to = this.pos(fall.to.r, fall.to.c);
-            this.scene.tweens.add({ targets: sprite, x: to.x + this.cellSize / 2, y: to.y + this.cellSize / 2, duration: 150, ease: "Bounce.easeOut" });
+            this.scene.tweens.add({ targets: sprite, x: to.x + this.cellSize / 2, y: to.y + this.cellSize / 2, duration: 140, ease: "Bounce.easeOut" });
           }
-          await this.wait(165);
+          await this.wait(150);
           break;
         }
         case "spawn": {
@@ -325,9 +449,9 @@ export class BoardView extends Phaser.GameObjects.Container {
             sprite.setDepth(10);
             this.add(sprite);
             this.sprites.set(sp.id, sprite);
-            this.scene.tweens.add({ targets: sprite, y: y + this.cellSize / 2, duration: 160, ease: "Sine.easeOut" });
+            this.scene.tweens.add({ targets: sprite, y: y + this.cellSize / 2, duration: 140, ease: "Sine.easeOut" });
           }
-          await this.wait(170);
+          await this.wait(150);
           break;
         }
         case "ingredient": {
@@ -335,6 +459,7 @@ export class BoardView extends Phaser.GameObjects.Container {
             const sprite = this.sprites.get(co.id);
             if (!sprite) continue;
             this.sprites.delete(co.id);
+            this.spawnBurst(sprite.x, sprite.y, 0xffe14d);
             this.scene.tweens.add({ targets: sprite, y: sprite.y + this.cellSize, alpha: 0, duration: 240, onComplete: () => sprite.destroy() });
           }
           this.refreshOverlays();

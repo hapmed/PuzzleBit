@@ -61,11 +61,25 @@ El MVP usa solo puntuación; el resto llega después.
   - Objetivos rotando: puntuación, recolectar color, limpiar jelly (rombo),
     ingredientes (con objetivo secundario de puntuación).
   - Grilla 7×7 al inicio, 8×8 después; tipos 5→6 con la profundidad.
-  - Crate spice con HP 2 y jelly en rombos que crecen con el nivel.
+  - Cajas con HP 2 y jelly en rombos que crecen con el nivel.
 - El usuario avanza de nivel ∞ N a N+1 al ganar; la progresión es propia e
   independiente de la campaña.
 - Ranking: el backend acepta ids `1..100000` y suma los niveles infinitos al
   ranking global; por nivel aparecen si alguien los jugó.
+
+## Sazonador arcade (90s)
+
+- Pantalla de encendido con **INSERT COIN** (moneda anima con sonido) directa al
+  siguiente nivel: cero menús intermedios.
+- Intro `¿LISTO? → ¡YA!` con fanfarria y chip **HI-SCOR** en el HUD.
+- **CRT:** scanlines suaves y flash de color en cada jugada, zoom "punch".
+- Partículas del color de cada pieza, `+N` flotante y banner de cascada con
+  **tambores de anunciador** (vox2..vox5 generados) y **voz** por
+  `speechSynthesis` es-ES (se puede callar con `localStorage pb.voiceoff=1`).
+- **Mascota "estilo toasty"**: un momentazo al azar sale del rincón
+  inferior derecho con la cara de pieza y su frase; si le das click rápido te
+  asfalt asalta (+150..600 puntos, flash + voz). Se evita repetir seguido
+  (cooldown 9 s).
 
 ## Ranking
 

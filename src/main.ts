@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { BootScene } from "./game/scenes/Boot";
 import { PreloadScene } from "./game/scenes/Preload";
 import { MenuScene } from "./game/scenes/Menu";
-import { LevelMapScene } from "./game/scenes/LevelMap";
 import { GameScene } from "./game/scenes/Game";
 import { RankingScene } from "./game/scenes/Ranking";
 import { DailyScene } from "./game/scenes/Daily";
@@ -30,7 +29,7 @@ const game = new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   dom: { createContainer: false },
-  scene: [BootScene, PreloadScene, MenuScene, LevelMapScene, GameScene, RankingScene, DailyScene],
+  scene: [BootScene, PreloadScene, MenuScene, GameScene, RankingScene, DailyScene],
 });
 
 // Handle para depuración/automatización (no se usa en producción).
