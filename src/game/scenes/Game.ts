@@ -194,9 +194,11 @@ export class GameScene extends Phaser.Scene {
     const casc = this.boardView.lastCascade;
     if (result.lost) {
       this.streak = 0;
+      this.updateStreakChip();
     } else if (casc >= 2) {
       this.streak++;
-      this.showStreak(this.streak);
+      this.updateStreakChip();
+      if (this.streak >= 2) this.showStreak(this.streak);
     } else {
       this.streak = 0;
       this.updateStreakChip();
