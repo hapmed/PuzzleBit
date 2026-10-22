@@ -8,7 +8,7 @@ import { createDailyLevel } from "../daily";
 import { createEndlessLevel } from "../endless";
 import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
-import { addCRTOverlays, addLevelAmbient, pixelRain, screenPunch, victorySplash } from "../fx";
+import { addCRTOverlays, addLevelAmbient, megaBreak, pixelRain, screenPunch, shockwave, victorySplash } from "../fx";
 import { announce, playSfx } from "../sfx";
 import { funnyPhrase } from "../phrases";
 import {
@@ -221,6 +221,7 @@ export class GameScene extends Phaser.Scene {
       { msg: "¡RACHA!", tint: 0xff9a3d },
       { msg: "¡EN LLAMAS!", tint: 0xff5fa2 },
       { msg: "¡Sobrecarga de combos!", tint: 0xb06bff },
+      { msg: "¡¡INMENSO!!", tint: 0xffffff },
     ];
     const tier = tiers[Math.min(n - 2, tiers.length - 1)];
     screenPunch(this, tier.tint, 0.55 + Math.min(n * 0.08, 0.5));
@@ -228,6 +229,13 @@ export class GameScene extends Phaser.Scene {
     if (n >= 3) {
       pixelRain(this, tier.tint, 24);
       announce(`¡Racha de ${n} combos!`, this);
+    }
+    if (n >= 5) {
+      // Espectáculo total: mega-rompe central + doble onda expansiva + aguacero blanco.
+      megaBreak(this, w / 2, h * 0.31, tier.tint);
+      shockwave(this, w * 0.3, h * 0.5, tier.tint, 1.3);
+      shockwave(this, w * 0.7, h * 0.5, tier.tint, 1.3);
+      pixelRain(this, 0xffffff, 40);
     }
     const banner = this.add.text(w / 2, h * 0.31, `${tier.msg} x${n}`, {
       fontFamily: '"Courier New", monospace',
