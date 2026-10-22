@@ -55,6 +55,14 @@ Instalable como **PWA** en móvil y escritorio.
 - ✅ **Estética de gabinete 90s**: scanlines CRT, ¿LISTO?/¡YA! con fanfarria, chip HI-SCOR, voz de anunciador (es-ES), stingers por cascada, mascota bonus clicable y espectáculos de pantalla (ondas expansivas, barridos, aguaceros, mega-rompe, confeti de victoria).
 - ✅ **Tablero a tamaño de teléfono**: celdas de hasta 92 px (el 8×8 ocupa ~95 % del ancho), botón "salir" junto a los boosters, piezas al 98 % de la celda con sombras que siguen cada caída/swap (lift, estiramiento y aplaste de aterrizaje).
 
+**Juice arcade 2 (2026-10-22):**
+
+- ✅ **Nivel en grande**: banner arcade "NIVEL X · «nombre»" al entrar, con el chip persistente HI-SCOR y la etiqueta dorada arriba.
+- ✅ **Fondo vivo por nivel**: tinte de atmósfera propio de cada nivel (hue determinista) + estrellitas pixel flotando con parpadeo; cada nivel viste distinto.
+- ✅ **Frases hilariantes aleatorias** al ganar y al perder (14 de cada), mostradas en el panel final y leídas por el anunciador.
+- ✅ **Racha de combos**: turnos seguidos con cascada → chip "RACHA xN 🔥", banner escalado, sonido con pitch ascendente, aguacero pixel y voz a partir de x3.
+- ✅ **Tutorial de primera vez** (4 pantallas con piezas reales: swap, formas mágicas, reglas y CIERRE); se salta con ✕ y solo aparece una vez (`pb.tutorial.v1`).
+
 **Desplegado (HomeLab, 2026-10-21):**
 
 - 🌐 **https://puzzlebit.hapmed.qzz.io** — HTTPS vía Cloudflare Tunnel (`puzzlebit.hapmed.qzz.io` → `:8086` en el host).

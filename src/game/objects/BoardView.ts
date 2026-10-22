@@ -27,6 +27,12 @@ export class BoardView extends Phaser.GameObjects.Container {
   private lastRemoval?: { x: number; y: number; cells: number };
   private shadows = new Map<number, Phaser.GameObjects.Image>();
 
+  /** Cascadas que vencieron en el último turno (0 = ninguna). */
+  get lastCascade(): number {
+    return this.cascadeCount;
+  }
+
+
   constructor(scene: Phaser.Scene, engine: Engine, originX: number, originY: number, cellSize: number, onTurnEnd: (r: TurnResult) => void) {
     super(scene, 0, 0);
     this.engine = engine;

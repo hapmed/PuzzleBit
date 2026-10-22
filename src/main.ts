@@ -5,6 +5,7 @@ import { MenuScene } from "./game/scenes/Menu";
 import { GameScene } from "./game/scenes/Game";
 import { RankingScene } from "./game/scenes/Ranking";
 import { DailyScene } from "./game/scenes/Daily";
+import { TutorialScene } from "./game/scenes/Tutorial";
 import { H, W } from "./game/config";
 
 function registerServiceWorker(): void {
@@ -29,7 +30,7 @@ const game = new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   dom: { createContainer: false },
-  scene: [BootScene, PreloadScene, MenuScene, GameScene, RankingScene, DailyScene],
+  scene: [BootScene, PreloadScene, TutorialScene, MenuScene, GameScene, RankingScene, DailyScene],
 });
 
 // Handle para depuración/automatización (no se usa en producción).

@@ -5,6 +5,22 @@ const KEY_DAILY = "pb.daily.v1";
 const KEY_BOOSTERS = "pb.boosters.v1";
 const KEY_NICKNAME = "pb.nickname.v1";
 const KEY_PENDING = "pb.pending.v1";
+const KEY_TUTORIAL = "pb.tutorial.v1";
+
+/** ¿Ya vio el tutorial de primera vez? */
+export function isTutorialDone(): boolean {
+  return localStorage.getItem(KEY_TUTORIAL) === "1";
+}
+
+/** Marca el tutorial como visto (para no volver a mostrarlo). */
+export function markTutorialDone(): void {
+  try {
+    localStorage.setItem(KEY_TUTORIAL, "1");
+  } catch {
+    /* sin storage: no vuelve a molestar */
+  }
+}
+
 
 export interface LevelProgress {
   stars: number;

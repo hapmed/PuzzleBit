@@ -1,6 +1,56 @@
 import Phaser from "phaser";
 
 /**
+ * Ambiente por nivel: tinta el fondo con un tono propio del nivel
+ * (hue determinista: cada nivel viste su atmósfera) y añade estrellitas
+ * pixeladas flotando hacia arriba con parpadeo. Barato y con vida propia.
+ */
+export function addLevelAmbient(scene: Phaser.Scene, bgWall: Phaser.GameObjects.Image, levelId: number): void {
+  const w = scene.scale.width;
+  const h = scene.scale.height;
+  const hue = (levelId * 47 + 40) % 360;
+
+  const atmo = Phaser.Display.Color.HSVToRGB(hue / 360, 0.5, 0.75) as { color: number };
+  bgWall.setTint(atmo.color);
+  const dark = Phaser.Display.Color.HSVToRGB(hue / 360, 0.4, 0.13) as { color: number };
+  scene.cameras.main.setBackgroundColor(dark.color);
+
+  // Estrellitas pixel: suben despacio, titilan y rebotan en el borde superior.
+  const count = 22;
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const size = 6 + Math.random() * 10;
+    const dot = scene.add
+      .image(x, y, "star")
+      .setDisplaySize(size, size)
+      .setAlpha(0.08 + Math.random() * 0.22);
+    const subHue = (hue + 160 + i * 12) % 360;
+    const tint = Phaser.Display.Color.HSVToRGB(subHue / 360, 0.6, 0.85) as { color: number };
+    dot.setTint(tint.color);
+    const drift = 9000 + Math.random() * 13000;
+    scene.tweens.add({
+      targets: dot,
+      y: h + 30,
+      duration: drift,
+      repeat: -1,
+      onRepeat: () => {
+        dot.y = -30;
+        dot.x = Math.random() * w;
+      },
+    });
+    scene.tweens.add({
+      targets: dot,
+      alpha: dot.alpha + 0.16,
+      duration: 1100 + Math.random() * 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+}
+
+/**
  * Efecto de pantalla completa: flash de color + zoom punch + marco
  * (viñeta) que se apaga. Con esto un combo grande se siente "de arcade".
  */

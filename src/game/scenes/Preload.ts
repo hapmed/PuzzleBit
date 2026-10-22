@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { COLORS } from "../config";
 import levelCatalogJson from "../../../data/levels.json";
 import { parseLevelCatalog, type LevelDef } from "../levels";
-import { ensureNickname, getNickname, isCampaignCompleted, maxEndlessLevel, maxPlayableLevel, resumeLevel } from "../state";
+import { ensureNickname, getNickname, isCampaignCompleted, isTutorialDone, maxEndlessLevel, maxPlayableLevel, resumeLevel } from "../state";
 import { addCRTOverlays } from "../fx";
 import { playSfx, SFX_KEYS } from "../sfx";
 import * as api from "../../api/client";
@@ -91,6 +91,11 @@ export class PreloadScene extends Phaser.Scene {
       const unlocked = maxPlayableLevel(total);
       const fallback = isCampaignCompleted(total) ? maxEndlessLevel(total) : unlocked;
       const next = resumeLevel(fallback);
+      // Primera visita: briefing de gabinete (cómo se juega y las reglas).
+      if (!isTutorialDone()) {
+        this.scene.start("Tutorial", { levelId: next });
+        return;
+      }
       this.scene.start("Game", { levelId: next });
     };
     this.input.once("pointerdown", enterGame);

@@ -8,8 +8,9 @@ import { createDailyLevel } from "../daily";
 import { createEndlessLevel } from "../endless";
 import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
-import { addCRTOverlays, screenPunch, victorySplash } from "../fx";
+import { addCRTOverlays, addLevelAmbient, pixelRain, screenPunch, victorySplash } from "../fx";
 import { announce, playSfx } from "../sfx";
+import { funnyPhrase } from "../phrases";
 import {
   finalScoreWithMovesLeft,
   starsForScore,
@@ -24,6 +25,9 @@ export class GameScene extends Phaser.Scene {
   private hud!: Hud;
   private levelId = 1;
   private isDaily = false;
+  /** Turnos seguidos con cascada de 2+ (racha de combos). */
+  private streak = 0;
+  private streakText?: Phaser.GameObjects.Text;
 
   constructor() {
     super("Game");
@@ -52,12 +56,15 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.bg);
     const bgWall = this.add.image(w / 2, h / 2, "bg").setDisplaySize(w, h).setAlpha(0.35);
     this.tweens.add({ targets: bgWall, x: bgWall.x - 10, duration: 5200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    // Fondo vivo: tinte del nivel + estrellitas flotando.
+    addLevelAmbient(this, bgWall, this.isDaily ? 77 : this.levelId);
 
     this.add
-      .text(w / 2, 12, this.isDaily ? "Reto diario" : `Nivel ${level.id} · ${level.name}`, {
+      .text(w / 2, 10, this.isDaily ? "RETO DIARIO" : `Nivel ${level.id} · ${level.name}`, {
         fontFamily: '"Courier New", monospace',
-        fontSize: "18px",
-        color: "#ffffff",
+        fontSize: "17px",
+        color: "#ffd95e",
+        fontStyle: "bold",
       })
       .setOrigin(0.5, 0);
 
@@ -99,7 +106,7 @@ export class GameScene extends Phaser.Scene {
     stamp.setAlpha(0.7);
   }
 
-  /** Intro de gabinete: "¿LISTO?" → "¡YA!" con fanfarria (no bloquea el tablero). */
+  /** Intro de gabinete: "¿LISTO?" → "¡YA!" → NIVEL X en grande, con fanfarria. */
   private arcadeIntro(): void {
     const w = this.scale.width;
     const h = this.scale.height;
@@ -115,6 +122,30 @@ export class GameScene extends Phaser.Scene {
       playSfx(this, "start");
       this.tweens.add({ targets: banner, scale: 1.25, alpha: 0, duration: 360, delay: 120, onComplete: () => banner.destroy() });
     });
+
+    // El nivel actual, EN GRANDE, mientras el tablero cae.
+    const isDaily = this.isDaily;
+    const bigLabel = this.add.text(w / 2, h * 0.27, isDaily ? "RETO DIARIO" : `NIVEL ${this.levelId}`, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: isDaily ? "34px" : "52px",
+      color: "#ffd95e",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(96).setStroke("#14102b", 10).setScale(2.2).setAlpha(0);
+    const subLabel = this.add.text(w / 2, h * 0.27 + 46, isDaily ? "¡solo jugable hoy!" : `«${this.resolveLevel().name}»`, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "17px",
+      color: "#b0a6d9",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(96).setAlpha(0);
+    this.tweens.add({ targets: [bigLabel, subLabel], alpha: 1, delay: 880, duration: 200 });
+    this.tweens.add({ targets: bigLabel, scale: 1, delay: 880, duration: 320, ease: "Back.easeOut" });
+    this.time.delayedCall(3050, () => {
+      this.tweens.add({ targets: [bigLabel, subLabel], alpha: 0, y: "-=26", duration: 380, onComplete: () => {
+        bigLabel.destroy();
+        subLabel.destroy();
+      } });
+    });
+
     // HI-SCOR chip arcade (mejor suma de progreso local).
     const map = getAllProgress();
     let best = 0;
@@ -159,12 +190,69 @@ export class GameScene extends Phaser.Scene {
 
   private onTurnEnd(result: TurnResult): void {
     this.hud.update(this.engine);
+    // Racha de combos: turnos seguidos con cascada de 2+.
+    const casc = this.boardView.lastCascade;
+    if (result.lost) {
+      this.streak = 0;
+    } else if (casc >= 2) {
+      this.streak++;
+      this.showStreak(this.streak);
+    } else {
+      this.streak = 0;
+      this.updateStreakChip();
+    }
     if (result.won) {
       this.finishVictory();
     } else if (result.lost) {
       this.finishDefeat();
     } else {
       this.maybeSpawnToasty();
+    }
+  }
+
+  // ——— Racha de combos ———
+  private showStreak(n: number): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.updateStreakChip();
+    const tiers = [
+      { msg: "¡RACHA!", tint: 0xff9a3d },
+      { msg: "¡EN LLAMAS!", tint: 0xff5fa2 },
+      { msg: "¡Sobrecarga de combos!", tint: 0xb06bff },
+    ];
+    const tier = tiers[Math.min(n - 2, tiers.length - 1)];
+    screenPunch(this, tier.tint, 0.55 + Math.min(n * 0.08, 0.5));
+    playSfx(this, "cascade", 1 + Math.min(n, 10) * 0.07); // cada racha suena más agudo
+    if (n >= 3) {
+      pixelRain(this, tier.tint, 24);
+      announce(`¡Racha de ${n} combos!`, this);
+    }
+    const banner = this.add.text(w / 2, h * 0.31, `${tier.msg} x${n}`, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: "30px",
+      color: "#ffd95e",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(96).setStroke("#14102b", 8).setScale(0.4).setAlpha(0);
+    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 200, ease: "Back.easeOut" });
+    this.tweens.add({ targets: banner, alpha: 0, y: "-=34", duration: 340, delay: 900, onComplete: () => banner.destroy() });
+  }
+
+  /** Chip persistente con la racha activa (bajo el HI-SCOR). */
+  private updateStreakChip(): void {
+    const w = this.scale.width;
+    if (!this.streakText) {
+      this.streakText = this.add.text(w - 20, 62, "", {
+        fontFamily: '"Courier New", monospace',
+        fontSize: "15px",
+        color: "#ffd95e",
+        fontStyle: "bold",
+      }).setOrigin(1, 0).setDepth(80);
+    }
+    const s = this.streak;
+    this.streakText.setText(s >= 2 ? `RACHA x${s} 🔥` : "");
+    if (s >= 2) {
+      this.streakText.setScale(1.25);
+      this.tweens.add({ targets: this.streakText, scale: 1, duration: 180, ease: "Back.easeOut" });
     }
   }
 
@@ -238,24 +326,26 @@ export class GameScene extends Phaser.Scene {
     const finalScore = finalScoreWithMovesLeft(this.engine.score, this.engine.movesLeft);
     const stars = starsForScore(finalScore, this.engine.level.stars);
     victorySplash(this); // confeti multicolor + ondas al ganar
-    this.showOverlay("¡WIN!", stars, finalScore, 500);
+    playSfx(this, "win");
+    this.showOverlay("¡WIN!", stars, finalScore, 500, false, funnyPhrase(true));
   }
 
   private finishDefeat(): void {
     const stars = 0;
     const finalScore = this.engine.score;
-    this.showOverlay("Ups…", stars, finalScore, 500, true);
+    playSfx(this, "lose");
+    this.showOverlay("GAME OVER", stars, finalScore, 500, true, funnyPhrase(false));
   }
 
-  private showOverlay(title: string, stars: number, finalScore: number, _delay: number, defeat = false): void {
+  private showOverlay(title: string, stars: number, finalScore: number, _delay: number, defeat = false, phrase = ""): void {
     const w = this.scale.width;
     const h = this.scale.height;
-    this.add.rectangle(w / 2, h / 2, w, h, 0x14102b, 0.78).setDepth(90);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x14102b, 0.82).setDepth(90);
 
     const panel = this.add
-      .text(w / 2, h / 2 - 120, title, {
+      .text(w / 2, h * 0.5 - 168, title, {
         fontFamily: '"Courier New", monospace',
-        fontSize: "44px",
+        fontSize: "46px",
         color: defeat ? "#ff5fa2" : "#ffd95e",
         fontStyle: "bold",
       })
@@ -266,7 +356,7 @@ export class GameScene extends Phaser.Scene {
 
     // Estrellas.
     for (let i = 0; i < 3; i++) {
-      const img = this.add.image(w / 2 + (i - 1) * 70, h / 2 - 30, "star").setDepth(91);
+      const img = this.add.image(w / 2 + (i - 1) * 70, h * 0.5 - 96, "star").setDepth(91);
       img.setDisplaySize(56, 56);
       img.setAlpha(i < stars ? 0 : 0.15);
       if (i < stars) {
@@ -275,7 +365,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const scoreText = this.add
-      .text(w / 2, h / 2 + 40, `${finalScore} puntos`, {
+      .text(w / 2, h * 0.5 - 14, `${finalScore} puntos`, {
         fontFamily: '"Courier New", monospace',
         fontSize: "26px",
         color: "#ffffff",
@@ -285,10 +375,29 @@ export class GameScene extends Phaser.Scene {
 
     void scoreText;
 
+    // Frase hilariante aleatoria (el anunciador la lee en voz alta).
+    if (phrase) {
+      const quote = this.add
+        .text(w / 2, h * 0.5 + 44, `“${phrase}”`, {
+          fontFamily: '"Courier New", monospace',
+          fontSize: "19px",
+          color: defeat ? "#b0a6d9" : "#4dd6a0",
+          wordWrap: { width: w - 60, useAdvancedWrap: true },
+          align: "center",
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(91)
+        .setAlpha(0);
+      this.tweens.add({ targets: quote, alpha: 1, duration: 250, delay: 420 });
+      this.time.delayedCall(650, () => announce(phrase, this));
+      // Tiemblito gracioso mientras la frase levita.
+      this.tweens.add({ targets: quote, angle: { from: -0.8, to: 0.8 }, duration: 90, yoyo: true, repeat: 10 });
+    }
+
     // Guarda el resultado y sincroniza (progreso/estrellas/score).
     this.persistResult(defeat ? 0 : stars, finalScore, defeat);
 
-    const buttonsY = h / 2 + 120;
+    const buttonsY = h * 0.5 + 150;
     if (!defeat) {
       this.overlayButton(w / 2, buttonsY, "siguiente nivel", () => {
         if (this.isDaily) {
@@ -301,7 +410,10 @@ export class GameScene extends Phaser.Scene {
       this.overlayButton(w / 2 + 120, buttonsY + 70, "reintentar", () => this.scene.restart());
     } else {
       this.overlayButton(w / 2, buttonsY, "reintentar", () => this.scene.restart());
-      this.overlayButton(w / 2, buttonsY + 70, "menú", () => this.scene.start("Menu"));
+      this.overlayButton(w / 2 - 120, buttonsY + 70, "menú", () => this.scene.start("Menu"));
+      this.overlayButton(w / 2 + 120, buttonsY + 70, "¿reventar?", () => {
+        this.toast("¡Eso no se puede reventar!");
+      });
     }
   }
 
