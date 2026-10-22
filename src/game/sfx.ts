@@ -4,9 +4,48 @@ const KEYS = ["click", "swap", "match", "cascade", "special", "win", "lose", "co
 export type SfxKey = (typeof KEYS)[number];
 export const SFX_KEYS = KEYS;
 
+/** Contexto WebAudio del gestor de sonido (si lo hay). */
+function audioContext(scene: Phaser.Scene): AudioContext | undefined {
+  return (scene.sound as unknown as { context?: AudioContext } | undefined)?.context;
+}
+
+/** Desbloquea/reanuda el audio móvil: los navegadores lo suspenden hasta el primer gesto. */
+function ensureAudioContext(scene: Phaser.Scene): void {
+  const sound = scene.sound;
+  if (!sound) return;
+  try {
+    if (sound.locked) sound.unlock();
+    const ctx = audioContext(scene);
+    if (ctx && ctx.state === "suspended") void ctx.resume();
+  } catch {
+    /* sin WebAudio disponible: silencioso */
+  }
+}
+
+/** Escucha global (una sola vez por sesión): reanuda el audio con el primer gesto
+ *  y al volver de segundo plano (iOS/Android suspenden el contexto). */
+export function bindAudioUnlock(scene: Phaser.Scene): void {
+  if (scene.registry.get("audioUnlocked")) return;
+  scene.registry.set("audioUnlocked", true);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    const sound = scene.sound;
+    if (!sound) return;
+    try {
+      const ctx = audioContext(scene);
+      if (ctx && ctx.state === "suspended") void ctx.resume();
+    } catch {
+      /* noop */
+    }
+  }, { passive: true });
+  scene.input.on("pointerdown", () => ensureAudioContext(scene));
+}
+
 /** Reproduce un efecto; silencioso si el sonido no está cargado. */
 export function playSfx(scene: Phaser.Scene, key: SfxKey, rate = 1): void {
-  if (!scene.sound) return;
+  const sound = scene.sound;
+  if (!sound) return;
+  ensureAudioContext(scene);
   if (scene.cache.audio.exists(key)) {
     scene.sound.play(key, { rate });
   }
@@ -41,11 +80,13 @@ export function announce(text: string, scene?: Phaser.Scene): void {
   }
 }
 
-/** Música de fondo en loop (solo se lanza una vez por partida). */
+/** Música de fondo en loop; reaparece si el contexto volvió a suspenderse. */
 export function ensureMusic(scene: Phaser.Scene): void {
-  if (!scene.sound || scene.registry.get("musicPlaying")) return;
-  if (!scene.cache.audio.exists("music")) return;
-  const music = scene.sound.add("music", { loop: true, volume: 0.5 });
+  const sound = scene.sound;
+  if (!sound || !scene.cache.audio.exists("music")) return;
+  if (scene.registry.get("musicPlaying")) return;
+  ensureAudioContext(scene);
+  const music = sound.add("music", { loop: true, volume: 0.5 });
   music.play();
   scene.registry.set("musicPlaying", true);
 }

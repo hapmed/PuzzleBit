@@ -61,7 +61,13 @@ Instalable como **PWA** en móvil y escritorio.
 - ✅ **Fondo vivo por nivel**: tinte de atmósfera propio de cada nivel (hue determinista) + estrellitas pixel flotando con parpadeo; cada nivel viste distinto.
 - ✅ **Frases hilariantes aleatorias** al ganar y al perder (14 de cada), mostradas en el panel final y leídas por el anunciador.
 - ✅ **Racha de combos**: turnos seguidos con cascada → chip "RACHA xN 🔥", banner escalado, sonido con pitch ascendente, aguacero pixel y voz a partir de x3.
-- ✅ **Tutorial de primera vez** (4 pantallas con piezas reales: swap, formas mágicas, reglas y CIERRE); se salta con ✕ y solo aparece una vez (`pb.tutorial.v1`).
+- ✅ **Tutorial de primera vez** (4 pantallas con piezas reales: swap, formas mágicas, reglas y cierre); se salta con ✕ y solo aparece una vez (`pb.tutorial.v1`).
+
+**Fixes gabinete (2026-10-22):**
+
+- 🐛 **Nivel visible de verdad**: el fondo del tablero pintaba un rectángulo opaco de pantalla completa que cubría el título del nivel y el fondo animado; ahora queda acotado a la zona del tablero y "NIVEL X · nombre" siempre está arriba (número grande + nombre debajo).
+- 🐛 **Audio móvil estable**: `playSfx` reanuda el contexto WebAudio suspendido y desbloquea al primer gesto (`bindAudioUnlock` en Preload, listener de visibilitychange); la música arranca ya también al entrar directo al juego (antes solo en el menú, que ya no se visita).
+- ✨ **Zoom de combo**: las cascadas y rachas altas aprietan el zoom de cámara (hasta ×1.18 en x5+), encima del flash y las ondas.
 
 **Desplegado (HomeLab, 2026-10-21):**
 

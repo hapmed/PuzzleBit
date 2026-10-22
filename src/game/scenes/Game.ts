@@ -8,8 +8,8 @@ import { createDailyLevel } from "../daily";
 import { createEndlessLevel } from "../endless";
 import type { LevelDef } from "../levels";
 import { COLORS } from "../config";
-import { addCRTOverlays, addLevelAmbient, megaBreak, pixelRain, screenPunch, shockwave, victorySplash } from "../fx";
-import { announce, playSfx } from "../sfx";
+import { addCRTOverlays, addLevelAmbient, comboZoom, megaBreak, pixelRain, screenPunch, shockwave, victorySplash } from "../fx";
+import { announce, ensureMusic, playSfx } from "../sfx";
 import { funnyPhrase } from "../phrases";
 import {
   finalScoreWithMovesLeft,
@@ -59,12 +59,21 @@ export class GameScene extends Phaser.Scene {
     // Fondo vivo: tinte del nivel + estrellitas flotando.
     addLevelAmbient(this, bgWall, this.isDaily ? 77 : this.levelId);
 
+    // Indicador de nivel SIEMPRE visible: gran "NIVEL X" + nombre debajo.
     this.add
-      .text(w / 2, 10, this.isDaily ? "RETO DIARIO" : `Nivel ${level.id} · ${level.name}`, {
+      .text(w / 2, 8, this.isDaily ? "RETO DIARIO" : `NIVEL ${level.id}`, {
         fontFamily: '"Courier New", monospace',
-        fontSize: "17px",
+        fontSize: "22px",
         color: "#ffd95e",
         fontStyle: "bold",
+      })
+      .setOrigin(0.5, 0)
+      .setStroke("#14102b", 4);
+    this.add
+      .text(w / 2, 36, this.isDaily ? "solo jugable hoy" : level.name, {
+        fontFamily: '"Courier New", monospace',
+        fontSize: "12px",
+        color: "#b0a6d9",
       })
       .setOrigin(0.5, 0);
 
@@ -83,6 +92,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, this.engine, (kind) => this.onBooster(kind));
     this.hud.update(this.engine);
     addCRTOverlays(this);
+    ensureMusic(this);
     this.arcadeIntro();
 
     // Botón de pausa/salir (abajo a la derecha, junto a los boosters).
@@ -225,6 +235,7 @@ export class GameScene extends Phaser.Scene {
     ];
     const tier = tiers[Math.min(n - 2, tiers.length - 1)];
     screenPunch(this, tier.tint, 0.55 + Math.min(n * 0.08, 0.5));
+    comboZoom(this, 0.8 + Math.min(n * 0.18, 1.2)); // la racha aprieta el zoom
     playSfx(this, "cascade", 1 + Math.min(n, 10) * 0.07); // cada racha suena más agudo
     if (n >= 3) {
       pixelRain(this, tier.tint, 24);

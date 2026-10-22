@@ -51,6 +51,24 @@ export function addLevelAmbient(scene: Phaser.Scene, bgWall: Phaser.GameObjects.
 }
 
 /**
+ * Zoom de combo: acercamiento de cámara notorio para que las cascadas
+ * grandes se sientan de golpear la mesa del arcade.
+ * power 1 = x1.09, power 2 = x1.18: se usa en racha alto y cascadas fuertes.
+ */
+export function comboZoom(scene: Phaser.Scene, power = 1): void {
+  const cam = scene.cameras.main;
+  const zoom = 1 + 0.09 * Math.min(power, 2);
+  scene.tweens.add({
+    targets: cam,
+    zoom,
+    duration: 110,
+    yoyo: true,
+    ease: "Quad.easeIn",
+    onComplete: () => cam.setZoom(1),
+  });
+}
+
+/**
  * Efecto de pantalla completa: flash de color + zoom punch + marco
  * (viñeta) que se apaga. Con esto un combo grande se siente "de arcade".
  */

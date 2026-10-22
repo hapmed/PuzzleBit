@@ -4,7 +4,7 @@ import levelCatalogJson from "../../../data/levels.json";
 import { parseLevelCatalog, type LevelDef } from "../levels";
 import { ensureNickname, getNickname, isCampaignCompleted, isTutorialDone, maxEndlessLevel, maxPlayableLevel, resumeLevel } from "../state";
 import { addCRTOverlays } from "../fx";
-import { playSfx, SFX_KEYS } from "../sfx";
+import { playSfx, SFX_KEYS, bindAudioUnlock } from "../sfx";
 import * as api from "../../api/client";
 
 export let LEVELS: LevelDef[] = [];
@@ -25,6 +25,8 @@ export class PreloadScene extends Phaser.Scene {
     // El catálogo va empaquetado en el build (offline-first).
     LEVELS = parseLevelCatalog(levelCatalogJson);
     this.tryLoadDaily();
+    // El audio móvil queda desbloqueado con el primer gesto en cualquier parte.
+    bindAudioUnlock(this);
 
     const w = this.scale.width;
     const h = this.scale.height;

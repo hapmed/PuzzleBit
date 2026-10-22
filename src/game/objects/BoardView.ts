@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { INGREDIENT_TEXTURE, PIECE_TINTS, textureForPiece } from "../art";
-import { colorSweep, megaBreak, pixelRain, screenPunch, shockwave } from "../fx";
+import { colorSweep, comboZoom, megaBreak, pixelRain, screenPunch, shockwave } from "../fx";
 import type { Engine, GameEvent, TurnResult } from "../engine/engine";
 import { announce, playSfx } from "../sfx";
 
@@ -45,10 +45,11 @@ export class BoardView extends Phaser.GameObjects.Container {
     const w = board.cols * cellSize;
     const h = board.rows * cellSize;
 
-    // Fondo del tablero (cuadros alternos).
+    // Fondo del tablero (cuadros alternos) — solo la zona del tablero,
+    // sin tapar toda la pantalla (arrastraba al HUD y al fondo animado).
     this.bg = scene.add.graphics();
     this.bg.fillStyle(0x241d3f, 1);
-    this.bg.fillRect(-4, -4, w + 8, h + 8);
+    this.bg.fillRect(originX - 4, originY - 4, w + 8, h + 8);
     for (let r = 0; r < board.rows; r++) {
       for (let c = 0; c < board.cols; c++) {
         this.bg.fillStyle((r + c) % 2 === 0 ? 0x2c2452 : 0x352b63, 1);
@@ -352,6 +353,7 @@ export class BoardView extends Phaser.GameObjects.Container {
     playSfx(this.scene, voxKeys[Math.min(n - 2, voxKeys.length - 1)]);
     announce(tier.msg, this.scene);
     screenPunch(this.scene, tier.tint, tier.punch);
+    comboZoom(this.scene, 0.7 + tier.punch); // zoom de cámara con cada cascada
     const banner = this.scene.add.text(w / 2, this.scene.scale.height * 0.36, tier.msg, {
       fontFamily: '"Courier New", monospace',
       fontSize: "34px",
